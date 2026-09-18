@@ -10,206 +10,215 @@
 <link rel="preconnect" href="https://static.line-scdn.net">
 <link rel="preconnect" href="https://www.googleapis.com">
 <style>
+  /* ===== Material 3 Expressive のカラーロール（色は最小限：メイン／薄いメイン／白／グレー／赤＋手入力の緑・要確認の黄） ===== */
   :root {
-    --sign: #1E4E9C; --sign-soft: #DCE6F5; --asphalt: #2B2F33; --paper: #F4F5F7; --line: #DDE1E5;
-    --ink: #1C1F22; --sub: #5E666E; --card: #FFFFFF;
-    --man: #1F8A4C; --warn: #B7791F; --bad: #C62828; --ok: #1F8A4C;
-    --hdr: 56px;
+    --primary: #2F5BA8; --on-primary: #FFFFFF;
+    --primary-container: #D8E2FF; --on-primary-container: #001A43;
+    --surface: #FFFFFF; --surface-c: #F3F4F8; --surface-ch: #E9EBF1; --on-surface: #1A1C20; --on-surface-v: #5B5F68;
+    --outline-v: #D5D8E0;
+    --inverse: #2F3036; --on-inverse: #F1F0F7; --inverse-primary: #AEC6FF;
+    --error: #BA1A1A; --manual: #1B7A45; --warn: #8A5A00;
+    --odo: #202226;
+    --hdr: 64px;
+    --spring: cubic-bezier(.3, 1.35, .5, 1);
   }
   @media (prefers-color-scheme: dark) {
-    :root { --paper: #14171A; --card: #1E2226; --line: #30363B; --ink: #ECEFF1; --sub: #9AA3AB; --asphalt: #0E1012;
-      --sign: #4C7FD6; --sign-soft: #1F2C44; --man: #4CC27E; --warn: #E0A43A; --bad: #FF6B61; --ok: #4CC27E; }
+    :root {
+      --primary: #AEC6FF; --on-primary: #002E6A; --primary-container: #1B4489; --on-primary-container: #D8E2FF;
+      --surface: #111318; --surface-c: #1C1F25; --surface-ch: #272A31; --on-surface: #E2E2E9; --on-surface-v: #C4C6D0;
+      --outline-v: #3A3E46; --inverse: #E2E2E9; --on-inverse: #2F3036; --inverse-primary: #2F5BA8;
+      --error: #FFB4AB; --manual: #7FD99E; --warn: #FFB951; --odo: #0B0C0E;
+    }
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; overflow: hidden; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
-    background: var(--paper); color: var(--ink); font-size: 16px; line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Roboto, sans-serif;
+    background: var(--surface); color: var(--on-surface); font-size: 16px; line-height: 1.5;
     display: flex; flex-direction: column; height: 100dvh;
   }
   button { font: inherit; color: inherit; }
+  .i { width: 24px; height: 24px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .i.s { width: 16px; height: 16px; stroke-width: 2.4; vertical-align: -3px; }
 
-  /* ===== ヘッダー ===== */
-  header {
-    height: var(--hdr); flex: none; display: flex; align-items: center; justify-content: space-between;
-    padding: 0 12px 0 16px; padding-top: env(safe-area-inset-top); gap: 8px;
-  }
-  .who { font-size: 14px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .who b { color: var(--ink); font-weight: 600; font-size: 16px; }
-  .hdr-r { display: flex; align-items: center; gap: 6px; }
-  .tabs { display: flex; background: var(--line); border-radius: 999px; padding: 3px; }
-  .tabs button { border: 0; background: transparent; color: var(--sub); font-size: 14px; padding: 7px 14px; border-radius: 999px; min-height: 36px; }
-  .tabs button[aria-selected="true"] { background: var(--card); color: var(--ink); font-weight: 600; }
-  .icon-btn { width: 44px; height: 44px; border: 0; background: transparent; border-radius: 50%; display: grid; place-items: center; color: var(--sub); }
-  .icon-btn svg { width: 22px; height: 22px; }
-  .icon-btn.spin svg { animation: spin .8s linear infinite; }
+  /* ===== トップバー ===== */
+  header { height: calc(var(--hdr) + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 8px 0 20px; flex: none; display: flex; align-items: center; gap: 8px; }
+  .who { flex: 1; min-width: 0; font-size: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tabs { display: flex; background: var(--surface-ch); border-radius: 999px; padding: 4px; }
+  .tabs button { border: 0; background: transparent; color: var(--on-surface-v); font-size: 15px; font-weight: 600; padding: 0 16px; height: 40px; border-radius: 999px; transition: background .25s var(--spring); }
+  .tabs button[aria-selected="true"] { background: var(--primary); color: var(--on-primary); }
+  .ib { width: 48px; height: 48px; border: 0; background: transparent; border-radius: 999px; display: grid; place-items: center; color: var(--on-surface-v); }
+  .ib:active { background: var(--surface-ch); }
+  .ib.spin .i { animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ===== 左右スワイプで切り替わるページ ===== */
+  /* ===== スナックバー（重ねずに差し込む） ===== */
+  .snack { flex: none; margin: 0 12px 8px; display: none; align-items: center; gap: 4px; min-height: 56px;
+    background: var(--inverse); color: var(--on-inverse); border-radius: 16px; padding: 6px 4px 6px 16px; font-size: 14px; touch-action: pan-y; transition: transform .2s, opacity .2s; }
+  .snack.show { display: flex; animation: sin .28s var(--spring); }
+  @keyframes sin { from { opacity: 0; transform: translateY(-10px) scale(.98); } }
+  .snack.drag { transition: none; }
+  .snack.err { background: var(--error); color: #fff; }
+  .snack .msg { flex: 1; min-width: 0; }
+  .snack .msg b { display: block; font-size: 15px; font-weight: 600; }
+  .snack .acts { display: flex; flex-wrap: wrap; justify-content: flex-end; }
+  .snack .acts button { border: 0; background: transparent; color: var(--inverse-primary); font-weight: 700; font-size: 14px; height: 44px; padding: 0 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px; }
+  .snack.err .acts button { color: #fff; }
+  .snack .x { color: inherit; opacity: .8; }
+
+  /* ===== 左右スワイプのページ ===== */
   .pager { flex: 1; display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
   .pager::-webkit-scrollbar { display: none; }
   .page { flex: none; width: 100%; height: 100%; scroll-snap-align: start; scroll-snap-stop: always; overflow-y: auto; overscroll-behavior-y: contain; }
 
-  /* ===== 撮影ページ：情報は上、操作は下（親指の届く範囲） ===== */
+  /* ===== 撮影 ===== */
   #page-shoot { display: flex; flex-direction: column; }
-  .shoot-top { padding: 4px 16px 12px; }
-  .date { font-size: 14px; color: var(--sub); margin: 4px 2px 10px; }
-  .slot { margin-bottom: 12px; }
-  .slot-head { display: flex; align-items: baseline; justify-content: space-between; margin: 0 2px 6px; }
-  .slot-name { font-size: 17px; font-weight: 700; }
-  .slot-state { font-size: 13px; color: var(--sub); }
-  .slot-state.ok { color: var(--ok); } .slot-state.warn { color: var(--warn); font-weight: 600; } .slot-state.bad { color: var(--bad); font-weight: 600; }
-  .odo { display: flex; align-items: center; gap: 4px; background: var(--asphalt); padding: 8px 10px; border-radius: 10px; }
-  .odo .d { flex: 1; max-width: 38px; height: 44px; display: grid; place-items: center; background: #111416; color: #F2F4F5; border-radius: 4px;
+  .top { padding: 4px 16px 8px; }
+  .date { font-size: 14px; color: var(--on-surface-v); margin: 0 4px 12px; }
+  .slot { margin-bottom: 16px; }
+  .slot-h { display: flex; align-items: center; justify-content: space-between; margin: 0 4px 8px; }
+  .slot-n { font-size: 24px; font-weight: 700; letter-spacing: .02em; }
+  .chip { font-size: 13px; font-weight: 600; height: 28px; padding: 0 12px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px; background: var(--surface-ch); color: var(--on-surface-v); }
+  .chip.ok { background: var(--primary-container); color: var(--on-primary-container); }
+  .chip.man { background: color-mix(in srgb, var(--manual) 16%, var(--surface)); color: var(--manual); }
+  .chip.warn { background: color-mix(in srgb, var(--warn) 16%, var(--surface)); color: var(--warn); }
+  .chip.bad { background: color-mix(in srgb, var(--error) 14%, var(--surface)); color: var(--error); }
+  .slot-r { display: flex; align-items: center; gap: 8px; }
+  .odo { flex: 1; display: flex; align-items: center; gap: 4px; background: var(--odo); padding: 8px 12px; border-radius: 20px; }
+  .odo .d { flex: 1; max-width: 38px; height: 46px; display: grid; place-items: center; background: #15171A; color: #F2F4F5; border-radius: 6px;
     font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; box-shadow: inset 0 -10px 12px rgba(255,255,255,.04), inset 0 8px 10px rgba(0,0,0,.5); }
-  .odo .d.blank { color: #3A4046; }
+  .odo .d.blank { color: #3A3E44; }
   .odo.man .d:not(.blank) { color: #7FE3A5; }
   .odo.bad .d:not(.blank) { color: #FF8A80; }
-  .odo .unit { color: #8A939B; font-size: 14px; margin-left: 6px; }
-  .dist { text-align: right; font-size: 14px; color: var(--sub); margin: 0 2px; }
-  .dist b { color: var(--ink); font-size: 18px; }
-  .dist.bad b { color: var(--bad); }
+  .odo .u { color: #8A919A; font-size: 13px; margin-left: 4px; }
+  .edit { width: 56px; height: 62px; border: 0; border-radius: 20px; background: var(--surface-ch); color: var(--on-surface); display: grid; place-items: center; flex: none; transition: border-radius .3s var(--spring); }
+  .edit:active { border-radius: 12px; }
+  .dist { display: flex; justify-content: flex-end; align-items: baseline; gap: 6px; color: var(--on-surface-v); font-size: 14px; margin: 0 4px; }
+  .dist b { color: var(--on-surface); font-size: 22px; font-variant-numeric: tabular-nums; }
+  .dist.bad b { color: var(--error); }
 
-  .shoot-bottom { margin-top: auto; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; }
-  .shoot {
-    height: 96px; border-radius: 22px; background: var(--sign); color: #fff; display: flex; align-items: center; justify-content: center; gap: 12px;
-    font-size: 24px; font-weight: 700; cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: manipulation;
-    box-shadow: 0 6px 18px color-mix(in srgb, var(--sign) 35%, transparent);
-  }
-  .shoot:active { transform: scale(.98); }
-  .shoot.busy { opacity: .6; pointer-events: none; }
-  .shoot svg { width: 36px; height: 36px; }
-
-  /* 出発／帰宅スイッチ：どこを押しても切り替わる */
-  .sw { position: relative; height: 56px; border: 0; border-radius: 16px; background: var(--line); padding: 4px; display: grid; grid-template-columns: 1fr 1fr; cursor: pointer; touch-action: manipulation; }
-  .sw .knob { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); background: var(--card); border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.15); transition: transform .18s ease; }
+  .bottom { margin-top: auto; padding: 8px 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; }
+  /* 撮影ボタン：M3E の XL ボタン。押すと角が変形する */
+  .shoot { height: 136px; border-radius: 68px; background: var(--primary); color: var(--on-primary);
+    display: flex; align-items: center; justify-content: center; gap: 14px; font-size: 30px; font-weight: 700; letter-spacing: .04em;
+    cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: manipulation; transition: border-radius .35s var(--spring), transform .35s var(--spring); }
+  .shoot:active { border-radius: 36px; transform: scale(.985); }
+  .shoot.busy { opacity: .55; pointer-events: none; }
+  .shoot .i { width: 44px; height: 44px; stroke-width: 1.8; }
+  /* 出発／帰宅：どこを押しても切り替わるボタングループ */
+  .sw { position: relative; height: 80px; border: 0; border-radius: 40px; background: var(--surface-ch); padding: 6px; display: grid; grid-template-columns: 1fr 1fr; cursor: pointer; touch-action: manipulation; }
+  .sw .knob { position: absolute; top: 6px; bottom: 6px; left: 6px; width: calc(50% - 6px); background: var(--primary-container); border-radius: 34px; transition: transform .38s var(--spring); }
   .sw[aria-checked="true"] .knob { transform: translateX(100%); }
-  .sw span { position: relative; z-index: 1; display: grid; place-items: center; font-size: 17px; font-weight: 600; color: var(--sub); pointer-events: none; }
-  .sw span .s { font-size: 11px; font-weight: 500; margin-left: 4px; }
-  .sw[aria-checked="false"] span:first-of-type, .sw[aria-checked="true"] span:last-of-type { color: var(--ink); }
-  .hint { text-align: center; font-size: 12px; color: var(--sub); margin: -4px 0 0; }
+  .sw span { position: relative; z-index: 1; display: grid; place-items: center; font-size: 26px; font-weight: 700; letter-spacing: .08em; color: var(--on-surface-v); pointer-events: none; transition: color .2s; }
+  .sw[aria-checked="false"] span:first-of-type, .sw[aria-checked="true"] span:last-of-type { color: var(--on-primary-container); }
 
-  /* ===== 記録ページ ===== */
+  /* ===== 記録 ===== */
   #page-list { padding: 4px 16px calc(24px + env(safe-area-inset-bottom)); }
-  .total { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 8px 14px; margin: 4px 0 10px; }
-  .total .p { font-size: 13px; color: var(--sub); text-align: center; margin-bottom: 4px; }
-  .total .v { display: flex; justify-content: space-evenly; align-items: baseline; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .total .v .sl { color: var(--sub); font-weight: 400; }
-  .total .v small { font-size: 14px; font-weight: 600; margin-left: 2px; }
-  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--sub); margin: 0 2px 8px; }
-  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+  .total { background: var(--surface-c); border-radius: 28px; padding: 16px 8px 18px; margin: 0 0 12px; }
+  .total .p { font-size: 13px; color: var(--on-surface-v); text-align: center; margin-bottom: 6px; }
+  .total .v { display: flex; justify-content: space-evenly; align-items: baseline; font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .total .v .sl { color: var(--outline-v); font-weight: 300; }
+  .total .v small { font-size: 14px; font-weight: 600; margin-left: 2px; color: var(--on-surface-v); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--on-surface-v); margin: 0 4px 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .dot { width: 8px; height: 8px; border-radius: 99px; display: inline-block; }
   table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-  th { font-size: 12px; color: var(--sub); font-weight: 500; text-align: right; padding: 4px 6px; }
+  th { font-size: 12px; color: var(--on-surface-v); font-weight: 500; text-align: right; padding: 6px; }
   th:first-child, td:first-child { text-align: left; }
-  td { padding: 0; border-top: 1px solid var(--line); text-align: right; }
-  td .c { display: block; padding: 12px 6px; font-size: 15px; min-height: 48px; }
-  td button.c { width: 100%; border: 0; background: none; text-align: right; }
-  .c.man { color: var(--man); font-weight: 600; }
+  td { padding: 0; border-top: 1px solid var(--outline-v); text-align: right; }
+  tr.today td:first-child .c { color: var(--primary); font-weight: 700; }
+  tr.future td { opacity: .38; }
+  td .c { display: flex; align-items: center; justify-content: flex-end; gap: 3px; padding: 12px 6px; font-size: 15px; min-height: 48px; }
+  td:first-child .c { justify-content: flex-start; }
+  td button.c { width: 100%; border: 0; background: none; }
+  td button.c:disabled { color: inherit; }
+  .c.man { color: var(--manual); font-weight: 600; }
   .c.warn { color: var(--warn); font-weight: 700; }
-  .c.bad { color: var(--bad); font-weight: 700; }
-  .c.none { color: var(--sub); }
-  .c.ok::after { content: " ✓"; color: var(--ok); font-size: 12px; }
-  .empty { text-align: center; color: var(--sub); padding: 32px 0; font-size: 14px; }
-  .skel { height: 18px; border-radius: 6px; background: linear-gradient(90deg, var(--line), var(--card), var(--line)); background-size: 200% 100%; animation: sh 1.2s infinite; }
-  @keyframes sh { to { background-position: -200% 0; } }
+  .c.bad { color: var(--error); font-weight: 700; }
+  .c.none { color: var(--on-surface-v); }
+  .c.ok .i { color: var(--primary); }
 
-  /* ===== トースト：画面の上に「重ねず」ヘッダーの下に差し込む（内容は下にずれるだけ）。スワイプか×で消える ===== */
-  .toast {
-    flex: none; margin: 0 12px 8px; display: none;
-    background: var(--ink); color: var(--paper); border-radius: 14px; padding: 10px 6px 10px 14px;
-    align-items: center; gap: 8px; font-size: 14px; touch-action: pan-y; transition: transform .18s, opacity .18s;
-  }
-  .toast.show { display: flex; animation: tin .18s ease-out; }
-  @keyframes tin { from { opacity: 0; transform: translateY(-8px); } }
-  .toast.drag { transition: none; }
-  .toast .msg { flex: 1; min-width: 0; }
-  .toast .msg b { display: block; font-size: 16px; }
-  .toast.ok { background: var(--ok); color: #fff; }
-  .toast.err { background: var(--bad); color: #fff; }
-  .toast .acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-  .toast .acts button { border: 1px solid rgba(255,255,255,.75); background: transparent; font-size: 13px; padding: 8px 10px; border-radius: 10px; white-space: nowrap; min-height: 40px; }
-  .toast .x { border: 0; background: transparent; width: 40px; height: 40px; font-size: 20px; opacity: .8; flex: none; }
-
-  /* ===== 修正シート ===== */
-  .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: flex-end; z-index: 30; }
+  /* ===== ボトムシート ===== */
+  .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: flex-end; z-index: 30; }
   .sheet-bg.show { display: flex; }
-  .sheet { width: 100%; background: var(--card); border-radius: 18px 18px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); max-height: 92dvh; overflow-y: auto; }
-  .sheet h2 { font-size: 18px; margin: 0 0 10px; display: flex; justify-content: space-between; align-items: center; }
-  .sheet h2 .tag { font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--line); color: var(--sub); }
-  .sheet h2 .tag.man { background: color-mix(in srgb, var(--man) 18%, transparent); color: var(--man); }
-  .sheet h2 .tag.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
-  .sheet h2 .tag.bad { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
-  .sheet h2 .tag.ok { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
-  .photo { width: 100%; min-height: 120px; max-height: 42dvh; background: var(--line); border-radius: 10px; display: grid; place-items: center; color: var(--sub); font-size: 14px; overflow: hidden; }
-  .photo img { width: 100%; max-height: 42dvh; object-fit: contain; display: block; }
-  .field { margin: 12px 0; }
-  .field label { font-size: 13px; color: var(--sub); }
-  .field input { width: 100%; font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 10px 12px; border: 2px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); }
-  .field input:focus { outline: none; border-color: var(--sign); }
-  .row { display: flex; gap: 10px; margin-top: 10px; }
-  .btn { flex: 1; min-height: 52px; border-radius: 12px; border: 0; font-size: 15px; font-weight: 700; padding: 0 8px; }
-  .btn.pri { background: var(--sign); color: #fff; }
-  .btn.sec { background: var(--line); color: var(--ink); }
-  .btn.okb { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
-  .btn:disabled { opacity: .45; }
+  .sheet { width: 100%; background: var(--surface-c); border-radius: 28px 28px 0 0; padding: 8px 16px calc(16px + env(safe-area-inset-bottom)); max-height: 92dvh; overflow-y: auto; animation: up .32s var(--spring); }
+  @keyframes up { from { transform: translateY(24px); opacity: .6; } }
+  .handle { width: 32px; height: 4px; border-radius: 2px; background: var(--outline-v); margin: 6px auto 14px; }
+  .sheet h2 { font-size: 22px; margin: 0 4px 12px; display: flex; justify-content: space-between; align-items: center; }
+  .photo { width: 100%; min-height: 120px; max-height: 40dvh; background: var(--surface-ch); border-radius: 20px; display: grid; place-items: center; color: var(--on-surface-v); font-size: 14px; overflow: hidden; }
+  .photo img { width: 100%; max-height: 40dvh; object-fit: contain; display: block; }
+  .field { margin: 14px 0; }
+  .field input { width: 100%; font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; padding: 12px 16px; border: 2px solid var(--outline-v); border-radius: 16px; background: var(--surface); color: var(--on-surface); }
+  .field input:focus { outline: none; border-color: var(--primary); }
+  .row { display: flex; gap: 8px; margin-top: 8px; }
+  .btn { flex: 1; height: 56px; border-radius: 28px; border: 0; font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: border-radius .3s var(--spring); }
+  .btn:active { border-radius: 14px; }
+  .btn.pri { background: var(--primary); color: var(--on-primary); }
+  .btn.ton { background: var(--primary-container); color: var(--on-primary-container); }
+  .btn.sec { background: var(--surface-ch); color: var(--on-surface); }
+  .btn:disabled { opacity: .4; }
 
-  .reg { position: fixed; inset: 0; background: var(--paper); z-index: 25; padding: 72px 20px 24px; }
-  .reg h1 { font-size: 22px; margin: 0 0 6px; }
-  .reg p { color: var(--sub); margin: 0 0 18px; font-size: 14px; }
-  .debug { position: fixed; left: 8px; right: 8px; bottom: 180px; background: rgba(0,0,0,.8); color: #9fe; font: 11px ui-monospace, Menlo, monospace; white-space: pre-wrap; padding: 8px; border-radius: 8px; max-height: 30dvh; overflow-y: auto; pointer-events: none; z-index: 40; }
+  .reg { position: fixed; inset: 0; background: var(--surface); z-index: 25; padding: 88px 20px 24px; }
+  .reg h1 { font-size: 28px; margin: 0 0 20px; }
+  .skel { border-radius: 20px; background: linear-gradient(90deg, var(--surface-c), var(--surface-ch), var(--surface-c)); background-size: 200% 100%; animation: sh 1.2s infinite; }
+  @keyframes sh { to { background-position: -200% 0; } }
+  .debug { position: fixed; left: 8px; right: 8px; bottom: 240px; background: rgba(0,0,0,.8); color: #9fe; font: 11px ui-monospace, Menlo, monospace; white-space: pre-wrap; padding: 8px; border-radius: 8px; max-height: 30dvh; overflow-y: auto; pointer-events: none; z-index: 40; }
   [hidden] { display: none !important; }
-  :focus-visible { outline: 3px solid var(--sign); outline-offset: 2px; }
-  @media (prefers-reduced-motion: reduce) { .toast, .sw .knob { transition: none; animation: none; } .pager { scroll-behavior: auto; } }
+  :focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
+<!-- アイコン（iOS純正のようなシンプルな線画） -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3.5 8.5A2 2 0 0 1 5.5 6.5h2l1.5-2.2h6l1.5 2.2h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.6"/></symbol>
+  <symbol id="i-reload" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4v4.5H15"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M14 7.5l2.5 2.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4"/><path d="M12 17.2v.3"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h15l-3.5-3.5"/><path d="M20 16H5l3.5 3.5"/></symbol>
+</svg>
+
 <header>
-  <div class="who" id="who">読み込み中…</div>
-  <div class="hdr-r">
-    <div class="tabs" id="tabs" role="tablist">
-      <button role="tab" aria-selected="true" data-page="0">撮影</button>
-      <button role="tab" aria-selected="false" data-page="1">記録</button>
-    </div>
-    <button class="icon-btn" id="reload" aria-label="最新の状態に更新">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
-    </button>
+  <div class="who" id="who">&nbsp;</div>
+  <div class="tabs" id="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-page="0">撮影</button>
+    <button role="tab" aria-selected="false" data-page="1">記録</button>
   </div>
+  <button class="ib" id="reload" aria-label="更新"><svg class="i"><use href="#i-reload"/></svg></button>
 </header>
 
-<div class="toast" id="toast" role="status" aria-live="polite">
-  <div class="msg" id="toastMsg"></div>
-  <div class="acts" id="toastActs"></div>
-  <button class="x" id="toastX" aria-label="閉じる">×</button>
+<div class="snack" id="snack" role="status" aria-live="polite">
+  <div class="msg" id="snackMsg"></div>
+  <div class="acts" id="snackActs"></div>
+  <button class="ib x" id="snackX" aria-label="閉じる"><svg class="i"><use href="#i-close"/></svg></button>
 </div>
 
 <div class="pager" id="pager">
-  <!-- 撮影 -->
   <section class="page" id="page-shoot" aria-label="撮影">
-    <div class="shoot-top">
+    <div class="top">
       <div class="date" id="today">&nbsp;</div>
-      <div id="slots"><div class="skel" style="height:96px"></div><div class="skel" style="height:96px;margin-top:12px"></div></div>
+      <div id="slots"><div class="skel" style="height:104px"></div><div class="skel" style="height:104px;margin-top:16px"></div></div>
     </div>
-    <div class="shoot-bottom">
+    <div class="bottom">
       <label class="shoot" id="shoot">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
-        <span id="shootLabel">出発を撮影</span>
+        <svg class="i"><use href="#i-camera"/></svg><span id="shootLabel">撮影</span>
         <input id="cam" type="file" accept="image/*" capture="environment" hidden>
       </label>
       <button class="sw" id="sw" role="switch" aria-checked="false" aria-label="出発と帰宅の切り替え">
-        <i class="knob"></i><span>出発<span class="s" id="swDep"></span></span><span>帰宅<span class="s" id="swRet"></span></span>
+        <i class="knob"></i><span>出発</span><span>帰宅</span>
       </button>
-      <p class="hint">「保存完了」が出たら、すぐ閉じて大丈夫です</p>
     </div>
   </section>
 
-  <!-- 記録 -->
   <section class="page" id="page-list" aria-label="記録">
-    <div class="total" id="total"><div class="p">今期の合計</div><div class="skel"></div></div>
+    <div class="total" id="total"><div class="p">&nbsp;</div><div class="skel" style="height:32px;margin:0 16px"></div></div>
     <div class="legend">
-      <span><i style="background:var(--man)"></i>手入力</span>
-      <span><i style="background:var(--warn)"></i>⚠️ 要確認</span>
-      <span><i style="background:var(--bad)"></i>異常値</span>
-      <span><span style="color:var(--ok)">✓</span> 確認済み</span>
+      <span><i class="dot" style="background:var(--manual)"></i>手入力</span>
+      <span style="color:var(--warn)"><svg class="i s"><use href="#i-warn"/></svg><span style="color:var(--on-surface-v)">要確認</span></span>
+      <span><i class="dot" style="background:var(--error)"></i>異常値</span>
+      <span style="color:var(--primary)"><svg class="i s"><use href="#i-check"/></svg><span style="color:var(--on-surface-v)">確認済み</span></span>
     </div>
     <table>
       <thead><tr><th>日付</th><th>出発</th><th>帰宅</th><th>距離</th></tr></thead>
@@ -218,32 +227,25 @@
   </section>
 </div>
 
-<!-- 初回登録 -->
 <section class="reg" id="reg" hidden>
-  <h1>社員番号を登録</h1>
-  <p>最初の1回だけ必要です。交通費シートの社員番号（6桁）を入力してください。</p>
-  <div class="field">
-    <label for="empId">社員番号</label>
-    <input id="empId" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off">
-  </div>
-  <button class="btn pri" id="regBtn" style="width:100%">登録する</button>
+  <h1>社員番号</h1>
+  <div class="field"><input id="empId" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" placeholder="000000" aria-label="社員番号（6桁）"></div>
+  <button class="btn pri" id="regBtn" style="width:100%">登録</button>
 </section>
 
 <div class="sheet-bg" id="sheetBg">
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
-    <h2><span id="sheetTitle"></span><span class="tag" id="sheetTag"></span></h2>
+    <div class="handle"></div>
+    <h2><span id="sheetTitle"></span><span class="chip" id="sheetTag"></span></h2>
     <div class="photo" id="sheetPhoto">写真なし</div>
-    <div class="field">
-      <label for="sheetKm">距離計（km）</label>
-      <input id="sheetKm" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
-    </div>
+    <div class="field"><input id="sheetKm" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="距離計（km）" placeholder="km"></div>
     <div class="row">
-      <button class="btn okb" id="sheetConfirm">✓ 確認済みにする</button>
-      <button class="btn sec" id="sheetSwap">⇄ 出発・帰宅を入替</button>
+      <button class="btn ton" id="sheetConfirm"><svg class="i"><use href="#i-check"/></svg>確認済み</button>
+      <button class="btn sec" id="sheetSwap"><svg class="i"><use href="#i-swap"/></svg>出発・帰宅</button>
     </div>
     <div class="row">
       <button class="btn sec" id="sheetCancel">閉じる</button>
-      <button class="btn pri" id="sheetSave">この数値で保存</button>
+      <button class="btn pri" id="sheetSave">保存</button>
     </div>
   </div>
 </div>
@@ -255,21 +257,23 @@
 /* ===== 設定 ===== */
 const LIFF_ID = '2011171675-iQ6TuVBt';
 const GAS_URL = 'https://script.google.com/macros/s/AKfycby_wWHyTDQs3FDwBQKTtLPie91Goe2DrSHnUslWPpDTz9qKYBM0Ka7o4Y1mcIflX3LWqg/exec';
-const MAX_EDGE = 1280;       // 送信する画像の長辺（px）
+const MAX_EDGE = 1280;
 const JPEG_Q = 0.8;
-const DIRECT_UPLOAD = true;  // 端末→Driveへ直接送る（失敗したら自動でGAS経由）
+const DIRECT_UPLOAD = true;
 const SWITCH_HOUR = 13;      // この時刻より前は「出発」、以降は「帰宅」を初期選択
-const MAX_DAY_KM = 300;      // 1日の距離がこれを超えたら異常値（赤）
+const MAX_DAY_KM = 300;      // 1日の距離がこれを超えたら異常値
 
 const LABEL = { 8: '出発', 9: '帰宅' };
 const $ = (id) => document.getElementById(id);
+const ic = (name, cls) => '<svg class="i' + (cls ? ' ' + cls : '') + '"><use href="#i-' + name + '"/></svg>';
 const state = { status: null, list: null, sessions: {}, col: 8, userPicked: false, listLoaded: false };
 const DEBUG = /debug(=|%3D)1/.test(location.search);
 function dbg(m) { if (!DEBUG) return; $('debug').hidden = false; $('debug').textContent += Math.round(performance.now()) + 'ms ' + m + '\n'; }
 function buzz() { try { navigator.vibrate && navigator.vibrate(8); } catch (_) {} }
+setCol(new Date().getHours() < SWITCH_HOUR ? 8 : 9, false);
 dbg('画面表示（ボタン操作可）');
 
-/* ===== LIFF：ページ表示を止めないよう、表示後にSDKを読み込む ===== */
+/* ===== LIFF（表示後に読み込み） ===== */
 const ready = new Promise((resolve, reject) => {
   const start = () => {
     const sc = document.createElement('script');
@@ -282,7 +286,7 @@ const ready = new Promise((resolve, reject) => {
         resolve(liff.getIDToken());
       } catch (e) { reject(e); }
     };
-    sc.onerror = () => reject(new Error('LINEの読み込みに失敗しました。通信状況を確認してください。'));
+    sc.onerror = () => reject(new Error('LINEの読み込みに失敗しました'));
     document.head.appendChild(sc);
   };
   if (document.readyState === 'complete') start(); else window.addEventListener('load', start);
@@ -290,16 +294,13 @@ const ready = new Promise((resolve, reject) => {
 
 async function api(action, data = {}) {
   const idToken = await ready;
-  if (!idToken) throw new Error('LINEのIDトークンを取得できません（LIFF設定のScopeで openid をオンにしてください）');
+  if (!idToken) throw new Error('LINEのIDトークンを取得できません（LIFFのScopeで openid をオン）');
   let res;
-  try {
-    res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action, idToken, ...data }) }); // text/plain＝プリフライトなし
-  } catch (e) { throw new Error('サーバーに接続できません。通信状況を確認してください。（' + e.message + '）'); }
+  try { res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action, idToken, ...data }) }); }
+  catch (e) { throw new Error('接続できません（' + e.message + '）'); }
   const text = await res.text();
   let j;
-  try { j = JSON.parse(text); } catch (_) {
-    throw new Error('サーバーの応答が不正です（HTTP ' + res.status + '）：' + text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 150));
-  }
+  try { j = JSON.parse(text); } catch (_) { throw new Error('サーバーの応答が不正です（HTTP ' + res.status + '）'); }
   if (!j.ok) {
     if (/有効期限/.test(j.error) && !sessionStorage.getItem('relogin')) { sessionStorage.setItem('relogin', '1'); location.reload(); }
     throw new Error(j.error || '通信エラー');
@@ -326,10 +327,9 @@ async function refreshStatus() {
     $('reg').hidden = true;
     if (!state.userPicked) setCol(defaultCol(), false);
     render();
-  } catch (e) { toast(esc(e.message), 'err'); }
+  } catch (e) { snack(esc(e.message), 'err'); }
 }
 
-/** 初期選択：時刻で決め、その区分が撮影済みでもう一方が未撮影ならもう一方 */
 function defaultCol() {
   let c = new Date().getHours() < SWITCH_HOUR ? 8 : 9;
   const s = state.status;
@@ -340,31 +340,47 @@ function defaultCol() {
   return c;
 }
 
+/* ===== 今日の記録 ===== */
 function render() {
   const s = state.status;
-  $('who').innerHTML = '<b>' + esc(s.name) + '</b> さん';
-  $('today').textContent = s.dateLabel + ' の記録';
+  $('who').textContent = s.name;
+  $('today').textContent = s.dateLabel;
   const [dep, ret] = s.slots;
   const dist = dep.km !== null && ret.km !== null ? ret.km - dep.km : null;
   const bad = dist !== null && (dist < 0 || dist > MAX_DAY_KM);
   $('slots').innerHTML = slotHtml(dep, bad) + slotHtml(ret, bad) +
-    (dist !== null ? '<div class="dist' + (bad ? ' bad' : '') + '">本日の移動 <b>' + fmt(dist) + '</b> km' + (bad ? '（要確認）' : '') + '</div>' : '');
-  $('swDep').textContent = dep.saved ? '✓' : '';
-  $('swRet').textContent = ret.saved ? '✓' : '';
+    (dist !== null ? '<div class="dist' + (bad ? ' bad' : '') + '">本日<b>' + fmt(dist) + '</b>km</div>' : '');
+}
+function slotChip(sl, bad) {
+  if (sl.km !== null) {
+    if (bad) return ['bad', ic('warn', 's') + '異常値'];
+    if (sl.warn) return ['warn', ic('warn', 's') + '要確認'];
+    if (sl.manual) return ['man', '手入力'];
+    if (sl.confirmed) return ['ok', ic('check', 's') + '確認済み'];
+    return ['', '記録済み'];
+  }
+  if (sl.saved) return sl.warn ? ['warn', ic('warn', 's') + '未読取'] : ['', '読み取り中'];
+  return ['', '未撮影'];
 }
 function slotHtml(sl, bad) {
-  let t = '未撮影', cls = '';
-  if (sl.km !== null) { t = bad ? '異常値' : sl.warn ? '要確認' : '記録済み'; cls = bad ? 'bad' : sl.warn ? 'warn' : 'ok'; }
-  else if (sl.saved) { t = sl.warn ? '読み取れませんでした（記録で入力）' : '保存済み・読み取り中'; cls = sl.warn ? 'warn' : ''; }
+  const [cls, text] = slotChip(sl, bad);
   const digits = sl.km === null ? '------' : String(sl.km).padStart(6, '0');
   const lead = sl.km === null ? 0 : Math.max(0, 6 - String(sl.km).length);
-  return '<div class="slot"><div class="slot-head"><span class="slot-name">' + sl.label + '</span><span class="slot-state ' + cls + '">' + t + '</span></div>' +
-    '<div class="odo' + (bad && sl.km !== null ? ' bad' : '') + '">' +
+  const odoCls = sl.km === null ? '' : bad ? ' bad' : sl.manual ? ' man' : '';
+  return '<div class="slot"><div class="slot-h"><span class="slot-n">' + sl.label + '</span><span class="chip ' + cls + '">' + text + '</span></div>' +
+    '<div class="slot-r"><div class="odo' + odoCls + '" aria-label="' + (sl.km === null ? '未記録' : sl.km + 'キロ') + '">' +
     [...digits].map((d, i) => '<span class="d' + (i < lead || sl.km === null ? ' blank' : '') + '">' + (sl.km === null ? '–' : d) + '</span>').join('') +
-    '<span class="unit">km</span></div></div>';
+    '<span class="u">km</span></div>' +
+    '<button class="edit" data-col="' + sl.col + '" aria-label="' + sl.label + 'を編集">' + ic('pencil') + '</button></div></div>';
 }
+$('slots').addEventListener('click', (e) => {
+  const b = e.target.closest('.edit');
+  if (!b || !state.status) return;
+  const s = state.status, sl = s.slots.find((x) => x.col === Number(b.dataset.col));
+  openEditor({ ...sl, dateKey: s.dateKey, label: s.dateLabel });
+});
 
-/* ===== 出発／帰宅スイッチ（どこを押しても切り替え） ===== */
+/* ===== 出発／帰宅スイッチ ===== */
 function setCol(c, byUser) {
   state.col = c;
   if (byUser) state.userPicked = true;
@@ -373,7 +389,7 @@ function setCol(c, byUser) {
 }
 $('sw').addEventListener('click', () => { buzz(); setCol(state.col === 8 ? 9 : 8, true); });
 
-/* ===== 撮影 → 同じ写真チェック → 縮小 → 端末に一時保存 → 送信 ===== */
+/* ===== 撮影 → 送信 ===== */
 $('cam').addEventListener('change', async (ev) => {
   const file = ev.target.files && ev.target.files[0];
   ev.target.value = '';
@@ -382,17 +398,16 @@ $('cam').addEventListener('change', async (ev) => {
   $('shoot').classList.add('busy');
   const done = () => $('shoot').classList.remove('busy');
 
-  // 同じ画像を2回保存しない（元の写真のハッシュで判定）
   const [hash, blob] = await Promise.all([fileHash(file).catch(() => ''), shrink(file).catch(() => null)]);
-  if (!blob) { done(); return toast('写真を読み込めませんでした。もう一度撮影してください。', 'err'); }
-  if (hash && sentHashes().includes(hash)) { done(); return toast('<b>この写真は送信済みです</b>同じ写真は保存しません。', 'err'); }
+  if (!blob) { done(); return snack('写真を読み込めませんでした', 'err'); }
+  if (hash && sentHashes().includes(hash)) { done(); return snack('<b>送信済みの写真です</b>同じ写真は保存しません', 'err'); }
   const t1 = performance.now();
 
   const sess = state.sessions[col] && state.sessions[col].expiresAt > Date.now() + 30000 ? state.sessions[col] : null;
   const cid = sess ? sess.cid : uuid();
   let localId = null;
   try { localId = await outbox.add({ buf: await blob.arrayBuffer(), takenAt, cid, col, hash }); } catch (_) {}
-  toast('<b>送信中…</b>' + LABEL[col] + (localId ? '（端末に一時保存済み）' : ''), '');
+  snack('<b>送信中…</b>' + LABEL[col], '');
 
   let r = null, route = '';
   if (sess && directEnabled()) {
@@ -406,51 +421,45 @@ $('cam').addEventListener('change', async (ev) => {
     delete state.sessions[col];
   }
   if (!r) {
-    try {
-      r = await api('upload', { image: await toBase64(blob), takenAt, cid, col });
-      route = 'GAS経由';
-    } catch (e) {
-      done();
-      return toast('<b>送信できませんでした</b>' + esc(e.message) + (localId ? '<br>写真は端末に保存済みです。次に開いたとき自動で送ります。' : ''), 'err', [], 15000);
-    }
+    try { r = await api('upload', { image: await toBase64(blob), takenAt, cid, col }); route = 'GAS経由'; }
+    catch (e) { done(); return snack('<b>送信できませんでした</b>' + esc(e.message) + (localId ? '<br>次に開いたとき自動で送ります' : ''), 'err', [], 15000); }
   }
   const t2 = performance.now();
   if (localId) outbox.del(localId).catch(() => {});
   if (hash) rememberHash(hash);
   done(); buzz();
-  dbg('準備 ' + Math.round(t1 - t0) + 'ms / 送信(' + route + ') ' + Math.round(t2 - t1) + 'ms / 合計 ' + Math.round(t2 - t0) + 'ms / ' + Math.round(blob.size / 1024) + 'KB');
+  dbg('準備 ' + Math.round(t1 - t0) + 'ms / 送信(' + route + ') ' + Math.round(t2 - t1) + 'ms / ' + Math.round(blob.size / 1024) + 'KB');
 
-  toast('<b>保存完了（' + esc(r.name) + '）</b>閉じても大丈夫です', 'ok',
-    [{ label: '⇄ ' + LABEL[r.col === 8 ? 9 : 8] + 'に変更', onClick: () => swapFile(r.fileId) }], 6000);
+  snack('<b>保存完了</b>' + esc(r.name) + '　閉じても大丈夫です', '',
+    [{ icon: 'swap', label: LABEL[r.col === 8 ? 9 : 8] + 'に変更', onClick: () => swapFile(r.fileId) }], 6000);
   if (state.status) {
     const sl = state.status.slots.find((x) => x.col === r.col);
-    if (sl) { sl.saved = true; sl.km = null; sl.warn = false; }
+    if (sl) Object.assign(sl, { saved: true, km: null, warn: false, manual: false, confirmed: false, fileId: r.fileId });
     render();
   }
   state.userPicked = false;
   setCol(r.col === 8 ? 9 : 8, false);
 
-  // 読み取り結果が出たら（画面を開いたままなら）確認用のトーストを出す
   fire('process', { fileId: r.fileId }).then((res) => {
     refreshStatus();
     if (state.listLoaded) loadList();
     const x = res && res.ok && res.result;
     if (!x) return;
-    if (x.duplicate) return toast('<b>同じ写真が登録済みでした</b>2枚目は保存していません。', 'err');
-    const d = { dateKey: x.dateKey, col: x.col, km: x.km, fileId: x.fileId, label: dateLabelFromKey(x.dateKey) };
-    if (x.km === null) return toast('<b>数値を読み取れませんでした</b>' + LABEL[x.col] + '：手で入力してください', 'err', [{ label: '入力する', onClick: () => openEditor(d) }], 15000);
-    toast('<b>' + LABEL[x.col] + '：' + fmt(x.km) + ' km</b>' + (x.warnings.length ? '⚠️ ' + esc(x.warnings.join(' / ')) : '読み取り結果'), x.warnings.length ? '' : 'ok',
-      [{ label: '✓ 正しい', onClick: () => confirmCell(d) }, { label: '修正', onClick: () => openEditor(d) }], 12000);
+    if (x.duplicate) return snack('<b>同じ写真が登録済みでした</b>2枚目は保存していません', 'err');
+    const d = { dateKey: x.dateKey, col: x.col, km: x.km, fileId: x.fileId, label: dateLabelFromKey(x.dateKey), warn: x.warnings.length > 0 };
+    if (x.km === null) return snack('<b>読み取れませんでした</b>' + LABEL[x.col], 'err', [{ icon: 'pencil', label: '入力', onClick: () => openEditor(d) }], 15000);
+    snack('<b>' + LABEL[x.col] + '　' + fmt(x.km) + ' km</b>' + (x.warnings.length ? esc(x.warnings.join(' / ')) : ''), '',
+      [{ icon: 'check', label: '正しい', onClick: () => confirmCell(d) }, { icon: 'pencil', label: '修正', onClick: () => openEditor(d) }], 12000);
   });
 });
 
 async function swapFile(fileId) {
-  try { const r = await api('swap', { fileId }); toast('<b>' + esc(r.name) + ' に変更しました</b>', 'ok'); refreshStatus(); if (state.listLoaded) loadList(); }
-  catch (e) { toast(esc(e.message), 'err'); }
+  try { const r = await api('swap', { fileId }); snack('<b>' + esc(r.name) + ' に変更しました</b>'); refreshStatus(); if (state.listLoaded) loadList(); }
+  catch (e) { snack(esc(e.message), 'err'); }
 }
 async function confirmCell(d) {
-  try { await api('confirm', { dateKey: d.dateKey, col: d.col }); buzz(); toast('<b>確認済みにしました</b>', 'ok'); refreshStatus(); if (state.listLoaded) loadList(); }
-  catch (e) { toast(esc(e.message), 'err'); }
+  try { await api('confirm', { dateKey: d.dateKey, col: d.col }); buzz(); snack('<b>確認済みにしました</b>'); refreshStatus(); if (state.listLoaded) loadList(); }
+  catch (e) { snack(esc(e.message), 'err'); }
 }
 
 async function shrink(file) {
@@ -474,7 +483,7 @@ function rememberHash(h) { const a = sentHashes().filter((x) => x !== h); a.push
 function toBase64(blob) { return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(blob); }); }
 function uuid() { return (crypto.randomUUID && crypto.randomUUID()) || (Date.now().toString(36) + Math.random().toString(36).slice(2)); }
 
-/* ===== 送れなかった写真の自動再送 ===== */
+/* ===== 未送信写真の自動再送 ===== */
 const outbox = {
   open() { return new Promise((res, rej) => { const r = indexedDB.open('odo-outbox', 2); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('q')) r.result.createObjectStore('q', { keyPath: 'id', autoIncrement: true }); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); },
   async run(mode, fn) { const db = await this.open(); return new Promise((res, rej) => { const t = db.transaction('q', mode); const q = fn(t.objectStore('q')); t.oncomplete = () => res(q.result); t.onerror = () => rej(t.error); }); },
@@ -496,25 +505,24 @@ async function flushOutbox() {
       sent++;
     } catch (_) { break; }
   }
-  if (sent) { toast('<b>未送信だった写真を ' + sent + ' 件送りました</b>', 'ok'); refreshStatus(); }
+  if (sent) { snack('<b>未送信の写真を ' + sent + ' 件送りました</b>'); refreshStatus(); }
 }
 
-/* ===== 記録 ===== */
+/* ===== 記録（期間の最終日＝20日から表示） ===== */
 async function loadList() {
   state.listLoaded = true;
   try {
     const d = await api('list');
     state.list = d;
     markAnomalies(d.rows);
-    $('total').innerHTML = '<div class="p">' + esc(d.periodName) + ' の合計</div>' +
+    $('total').innerHTML = '<div class="p">' + esc(d.periodName) + '</div>' +
       '<div class="v"><span>' + fmt(d.total) + '<small>km</small></span><span class="sl">／</span><span>' + fmt(d.yen) + '<small>円</small></span></div>';
-    $('rows').innerHTML = d.rows.length ? d.rows.map((r, i) =>
-      '<tr><td><span class="c">' + r.label + '</span></td>' + kmCell(r.dep, i, 8) + kmCell(r.ret, i, 9) +
-      '<td><span class="c' + (r.distBad ? ' bad' : '') + '">' + (r.dist === null ? '' : fmt(r.dist)) + '</span></td></tr>').join('')
-      : '<tr><td colspan="4"><div class="empty">今期の記録はまだありません</div></td></tr>';
-  } catch (e) { toast(esc(e.message), 'err'); }
+    $('rows').innerHTML = d.rows.map((r, i) =>
+      '<tr class="' + (r.future ? 'future' : r.today ? 'today' : '') + '"><td><span class="c">' + r.label + '</span></td>' +
+      kmCell(r.dep, i, 8, r.future) + kmCell(r.ret, i, 9, r.future) +
+      '<td><span class="c' + (r.distBad ? ' bad' : '') + '">' + (r.dist === null ? '' : fmt(r.dist)) + '</span></td></tr>').join('');
+  } catch (e) { snack(esc(e.message), 'err'); }
 }
-/** 前回より小さい値・マイナスや大きすぎる距離を異常値にする */
 function markAnomalies(rows) {
   let prev = null;
   [...rows].reverse().forEach((r) => {
@@ -524,27 +532,33 @@ function markAnomalies(rows) {
   });
 }
 function cellClass(c) { return c.bad ? 'bad' : c.warn ? 'warn' : c.km === null ? 'none' : c.manual ? 'man' : c.confirmed ? 'ok' : ''; }
-function kmCell(c, i, col) {
-  const text = c.km === null ? (c.warn ? '⚠️' : '—') : (c.warn && !c.bad ? '⚠️' : '') + fmt(c.km);
-  return '<td><button class="c ' + cellClass(c) + '" data-i="' + i + '" data-col="' + col + '">' + text + '</button></td>';
+function kmCell(c, i, col, future) {
+  const cls = cellClass(c);
+  let html = c.km === null ? (c.warn ? ic('warn', 's') : '—') : fmt(c.km);
+  if (c.km !== null && cls === 'warn') html = ic('warn', 's') + html;
+  if (cls === 'ok') html += ic('check', 's');
+  return '<td><button class="c ' + cls + '" data-i="' + i + '" data-col="' + col + '"' + (future ? ' disabled' : '') + '>' + html + '</button></td>';
 }
 $('rows').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-i]');
-  if (!b) return;
+  if (!b || b.disabled) return;
   const r = state.list.rows[Number(b.dataset.i)], col = Number(b.dataset.col), c = col === 8 ? r.dep : r.ret;
   openEditor({ dateKey: r.dateKey, label: r.label, col, ...c });
 });
 
+/* ===== 編集シート ===== */
 let editing = null;
+const TAG = { bad: [ 'warn', '異常値' ], warn: [ 'warn', '要確認' ], man: [ '', '手入力' ], ok: [ 'check', '確認済み' ], none: [ '', '未入力' ], '': [ '', 'AI読み取り' ] };
 async function openEditor(d) {
   editing = d;
-  $('sheetTitle').textContent = d.label + ' ' + LABEL[d.col];
-  const tag = $('sheetTag'), cls = cellClass(d);
-  tag.className = 'tag ' + cls;
-  tag.textContent = { bad: '異常値', warn: '要確認', man: '手入力', ok: '確認済み', none: '未入力' }[cls] || 'AI読み取り';
+  $('sheetTitle').textContent = d.label + '　' + LABEL[d.col];
+  const cls = cellClass(d), t = TAG[cls] || TAG[''];
+  const tag = $('sheetTag');
+  tag.className = 'chip ' + cls;
+  tag.innerHTML = (t[0] ? ic(t[0], 's') : '') + t[1];
   $('sheetKm').value = d.km === null || d.km === undefined ? '' : d.km;
-  $('sheetConfirm').disabled = d.km === null || d.km === undefined || d.confirmed;
-  $('sheetPhoto').textContent = d.fileId ? '写真を読み込み中…' : '写真なし';
+  $('sheetConfirm').disabled = d.km === null || d.km === undefined || !!d.confirmed;
+  $('sheetPhoto').textContent = d.fileId ? '読み込み中…' : '写真なし';
   $('sheetBg').classList.add('show');
   if (d.fileId) {
     try { const p = await api('photo', { fileId: d.fileId }); if (editing === d) $('sheetPhoto').innerHTML = '<img alt="' + esc(p.name) + '" src="data:image/jpeg;base64,' + p.image + '">'; }
@@ -556,19 +570,19 @@ $('sheetCancel').addEventListener('click', closeSheet);
 $('sheetBg').addEventListener('click', (e) => { if (e.target === $('sheetBg')) closeSheet(); });
 $('sheetSave').addEventListener('click', async () => {
   const km = Number(toHalf($('sheetKm').value).replace(/[^\d]/g, ''));
-  if (!editing || !km) return toast('距離計の数値を入力してください', 'err');
+  if (!editing || !km) return snack('距離計の数値を入力してください', 'err');
   try {
     const r = await api('correct', { dateKey: editing.dateKey, col: editing.col, km });
     closeSheet(); buzz();
-    toast('<b>保存しました</b>' + (r.warnings.length ? '⚠️ ' + esc(r.warnings.join(' / ')) : ''), r.warnings.length ? '' : 'ok');
+    snack('<b>保存しました</b>' + (r.warnings.length ? esc(r.warnings.join(' / ')) : ''));
     loadList(); refreshStatus();
-  } catch (e) { toast(esc(e.message), 'err'); }
+  } catch (e) { snack(esc(e.message), 'err'); }
 });
 $('sheetConfirm').addEventListener('click', async () => { const d = editing; closeSheet(); await confirmCell(d); });
 $('sheetSwap').addEventListener('click', async () => {
   const d = editing; closeSheet();
-  try { await api('swapDay', { dateKey: d.dateKey }); buzz(); toast('<b>' + d.label + ' の出発と帰宅を入れ替えました</b>', 'ok'); loadList(); refreshStatus(); }
-  catch (e) { toast(esc(e.message), 'err'); }
+  try { await api('swapDay', { dateKey: d.dateKey }); buzz(); snack('<b>' + d.label + ' の出発と帰宅を入れ替えました</b>'); loadList(); refreshStatus(); }
+  catch (e) { snack(esc(e.message), 'err'); }
 });
 
 /* ===== 初回登録 ===== */
@@ -577,11 +591,11 @@ $('regBtn').addEventListener('click', async () => {
     const s = await api('register', { empId: toHalf($('empId').value), direct: directEnabled(), origin: location.origin });
     state.status = s; state.sessions = s.uploads || {};
     $('reg').hidden = true; setCol(defaultCol(), false); render();
-    toast('<b>' + esc(s.name) + ' さんで登録しました</b>', 'ok');
-  } catch (e) { toast(esc(e.message), 'err'); }
+    snack('<b>' + esc(s.name) + ' さんで登録しました</b>');
+  } catch (e) { snack(esc(e.message), 'err'); }
 });
 
-/* ===== 左右スワイプでページ切り替え（タブと連動） ===== */
+/* ===== 左右スワイプでページ切り替え ===== */
 const pager = $('pager');
 let pageIdx = 0;
 function goPage(i) { pager.scrollTo({ left: i * pager.clientWidth, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }
@@ -595,7 +609,7 @@ pager.addEventListener('scroll', () => {
 }, { passive: true });
 window.addEventListener('resize', () => pager.scrollTo({ left: pageIdx * pager.clientWidth }));
 
-/* ===== 更新ボタン ===== */
+/* ===== 更新 ===== */
 $('reload').addEventListener('click', async () => {
   const b = $('reload');
   if (b.classList.contains('spin')) return;
@@ -604,30 +618,30 @@ $('reload').addEventListener('click', async () => {
   b.classList.remove('spin');
 });
 
-/* ===== トースト（ヘッダーの下。左右・上へのスワイプか×で消える） ===== */
-let toastTimer = null;
-function toast(html, kind, actions, ms) {
-  const t = $('toast');
-  $('toastMsg').innerHTML = html;
-  t.className = 'toast show ' + (kind || '');
+/* ===== スナックバー（スワイプか×で消える） ===== */
+let snackTimer = null;
+function snack(html, kind, actions, ms) {
+  const t = $('snack');
+  $('snackMsg').innerHTML = html;
+  t.className = 'snack show ' + (kind || '');
   t.style.transform = ''; t.style.opacity = '';
-  const box = $('toastActs');
+  const box = $('snackActs');
   box.innerHTML = '';
   (actions || []).forEach((a) => {
     const b = document.createElement('button');
-    b.textContent = a.label;
-    b.onclick = () => { hideToast(); a.onClick(); };
+    b.innerHTML = (a.icon ? ic(a.icon, 's') : '') + esc(a.label);
+    b.onclick = () => { hideSnack(); a.onClick(); };
     box.appendChild(b);
   });
-  clearTimeout(toastTimer);
-  if (kind) toastTimer = setTimeout(hideToast, ms || (kind === 'err' ? 12000 : 4000));
+  clearTimeout(snackTimer);
+  if (kind !== '' || actions) snackTimer = setTimeout(hideSnack, ms || (kind === 'err' ? 12000 : 4000));
 }
-function hideToast() { const t = $('toast'); t.classList.remove('show', 'drag'); t.style.transform = ''; t.style.opacity = ''; }
-$('toastX').addEventListener('click', hideToast);
+function hideSnack() { const t = $('snack'); t.classList.remove('show', 'drag'); t.style.transform = ''; t.style.opacity = ''; }
+$('snackX').addEventListener('click', hideSnack);
 (() => {
-  const t = $('toast');
+  const t = $('snack');
   let sx = 0, sy = 0, dx = 0, dy = 0, on = false;
-  t.addEventListener('pointerdown', (e) => { if (e.target.closest('button')) return; on = true; sx = e.clientX; sy = e.clientY; dx = dy = 0; t.classList.add('drag'); clearTimeout(toastTimer); });
+  t.addEventListener('pointerdown', (e) => { if (e.target.closest('button')) return; on = true; sx = e.clientX; sy = e.clientY; dx = dy = 0; t.classList.add('drag'); clearTimeout(snackTimer); });
   window.addEventListener('pointermove', (e) => {
     if (!on) return;
     dx = e.clientX - sx; dy = Math.min(0, e.clientY - sy);
@@ -639,13 +653,13 @@ $('toastX').addEventListener('click', hideToast);
     on = false; t.classList.remove('drag');
     if (Math.abs(dx) > 70 || dy < -35) {
       t.style.transform = 'translate(' + (dx === 0 ? 0 : Math.sign(dx) * 480) + 'px,' + (dy < -35 ? -120 : 0) + 'px)'; t.style.opacity = '0';
-      setTimeout(hideToast, 180);
-    } else { t.style.transform = ''; t.style.opacity = ''; toastTimer = setTimeout(hideToast, 5000); }
+      setTimeout(hideSnack, 180);
+    } else { t.style.transform = ''; t.style.opacity = ''; snackTimer = setTimeout(hideSnack, 5000); }
   });
 })();
 
 /* ===== 共通 ===== */
-function dateLabelFromKey(k) { const [y, m, d] = k.split('-').map(Number); const dt = new Date(y, m - 1, d); return m + '/' + d + '(' + '日月火水木金土'[dt.getDay()] + ')'; }
+function dateLabelFromKey(k) { const [y, m, d] = k.split('-').map(Number); return m + '/' + d + '(' + '日月火水木金土'[new Date(y, m - 1, d).getDay()] + ')'; }
 function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
 function toHalf(s) { return String(s).replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)); }
 function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
