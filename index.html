@@ -18,6 +18,7 @@
     --outline-v: #D5D8E0;
     --inverse: #2F3036; --on-inverse: #F1F0F7; --inverse-primary: #AEC6FF;
     --error: #BA1A1A; --manual: #1B7A45; --warn: #8A5A00;
+    --man-c: #C6EFD3; --on-man-c: #0A3A1E; --warn-c: #FFDDAA; --on-warn-c: #3D2800; --bad-c: #FFD6D1; --on-bad-c: #5C0006;
     --odo: #202226;
     --hdr: 64px;
     --spring: cubic-bezier(.3, 1.35, .5, 1);
@@ -28,6 +29,7 @@
       --surface: #111318; --surface-c: #1C1F25; --surface-ch: #272A31; --on-surface: #E2E2E9; --on-surface-v: #C4C6D0;
       --outline-v: #3A3E46; --inverse: #E2E2E9; --on-inverse: #2F3036; --inverse-primary: #2F5BA8;
       --error: #FFB4AB; --manual: #7FD99E; --warn: #FFB951; --odo: #0B0C0E;
+      --man-c: #1E5234; --on-man-c: #C6EFD3; --warn-c: #5A3F00; --on-warn-c: #FFDDAA; --bad-c: #8C0009; --on-bad-c: #FFDAD6;
     }
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -138,11 +140,14 @@
   td:first-child .c { justify-content: flex-start; }
   td button.c { width: 100%; border: 0; background: none; }
   td button.c:disabled { color: inherit; }
-  .c.man { color: var(--manual); font-weight: 600; }
-  .c.warn { color: var(--warn); font-weight: 700; }
-  .c.bad { color: var(--error); font-weight: 700; }
+  /* 状態は数字の色ではなく「背景」で示す（見やすさ優先） */
+  .c .v { display: inline-flex; align-items: center; gap: 3px; padding: 4px 10px; border-radius: 10px; }
+  .c.man .v { background: var(--man-c); color: var(--on-man-c); font-weight: 600; }
+  .c.warn .v { background: var(--warn-c); color: var(--on-warn-c); font-weight: 700; }
+  .c.bad .v { background: var(--bad-c); color: var(--on-bad-c); font-weight: 700; }
   .c.none { color: var(--on-surface-v); }
   .c.ok .i { color: var(--primary); }
+  .sw-c { display: inline-block; width: 14px; height: 14px; border-radius: 4px; }
 
   /* ===== ボトムシート ===== */
   .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: flex-end; z-index: 30; }
@@ -164,6 +169,19 @@
   .btn.sec { background: var(--surface-ch); color: var(--on-surface); }
   .btn:disabled { opacity: .4; }
 
+  /* ロード画面（M3 の円形プログレス） */
+  .loading { position: fixed; inset: 0; z-index: 50; display: none; place-items: center; background: rgba(0,0,0,.32); }
+  .loading.show { display: grid; animation: fin .15s ease-out; }
+  @keyframes fin { from { opacity: 0; } }
+  .load-card { min-width: 200px; max-width: 280px; background: var(--surface-c); border-radius: 28px; padding: 28px 24px 22px; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+  .spinner { width: 48px; height: 48px; animation: rot 1.4s linear infinite; }
+  .spinner circle { fill: none; stroke: var(--primary); stroke-width: 4.5; stroke-linecap: round; stroke-dasharray: 90 150; stroke-dashoffset: 0; animation: dash 1.4s ease-in-out infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  @keyframes dash { 0% { stroke-dasharray: 1 150; stroke-dashoffset: 0; } 50% { stroke-dasharray: 90 150; stroke-dashoffset: -35; } 100% { stroke-dasharray: 90 150; stroke-dashoffset: -124; } }
+  .load-msg { font-size: 17px; font-weight: 700; }
+  .load-sub { font-size: 13px; color: var(--on-surface-v); }
+  .load-sub:empty { display: none; }
+  .photo .spinner { width: 36px; height: 36px; }
   .reg { position: fixed; inset: 0; background: var(--surface); z-index: 25; padding: 88px 20px 24px; }
   .reg h1 { font-size: 28px; margin: 0 0 20px; }
   .skel { border-radius: 20px; background: linear-gradient(90deg, var(--surface-c), var(--surface-ch), var(--surface-c)); background-size: 200% 100%; animation: sh 1.2s infinite; }
@@ -171,7 +189,7 @@
   .debug { position: fixed; left: 8px; right: 8px; bottom: 240px; background: rgba(0,0,0,.8); color: #9fe; font: 11px ui-monospace, Menlo, monospace; white-space: pre-wrap; padding: 8px; border-radius: 8px; max-height: 30dvh; overflow-y: auto; pointer-events: none; z-index: 40; }
   [hidden] { display: none !important; }
   :focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
-  @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } .spinner { animation: rot 2s linear infinite !important; } }
 </style>
 </head>
 <body>
@@ -221,9 +239,9 @@
   <section class="page" id="page-list" aria-label="記録">
     <div class="total" id="total"><div class="p">&nbsp;</div><div class="skel" style="height:32px;margin:0 16px"></div></div>
     <div class="legend">
-      <span><i class="dot" style="background:var(--manual)"></i>手入力</span>
-      <span style="color:var(--warn)"><svg class="i s"><use href="#i-warn"/></svg><span style="color:var(--on-surface-v)">要確認</span></span>
-      <span><i class="dot" style="background:var(--error)"></i>異常値</span>
+      <span><i class="sw-c" style="background:var(--man-c)"></i>手入力</span>
+      <span><i class="sw-c" style="background:var(--warn-c)"></i>要確認</span>
+      <span><i class="sw-c" style="background:var(--bad-c)"></i>異常値</span>
       <span style="color:var(--primary)"><svg class="i s"><use href="#i-check"/></svg><span style="color:var(--on-surface-v)">確認済み</span></span>
     </div>
     <table>
@@ -256,6 +274,14 @@
   </div>
 </div>
 
+<div class="loading" id="loading" role="alert" aria-live="assertive" aria-busy="true">
+  <div class="load-card">
+    <svg class="spinner" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="19"/></svg>
+    <div class="load-msg" id="loadingMsg">保存中…</div>
+    <div class="load-sub" id="loadingSub"></div>
+  </div>
+</div>
+
 <canvas id="canvas" hidden></canvas>
 <div class="debug" id="debug" hidden></div>
 
@@ -267,7 +293,7 @@ const MAX_EDGE = 1280;
 const JPEG_Q = 0.8;
 const DIRECT_UPLOAD = true;
 const SWITCH_HOUR = 13;      // この時刻より前は「出発」、以降は「帰宅」を初期選択
-const MAX_DAY_KM = 300;      // 1日の距離がこれを超えたら異常値
+const MAX_DAY_KM = 200;      // 1日の距離がこれを超えたら異常値
 
 const LABEL = { 8: '出発', 9: '帰宅' };
 const $ = (id) => document.getElementById(id);
@@ -402,7 +428,8 @@ $('cam').addEventListener('change', async (ev) => {
   if (!file) return;
   const takenAt = Date.now(), col = state.col, t0 = performance.now();
   $('shoot').classList.add('busy');
-  const done = () => $('shoot').classList.remove('busy');
+  showLoading('送信中…', LABEL[col] + '　途中で閉じても、次に開いたとき自動で送ります');
+  const done = () => { $('shoot').classList.remove('busy'); hideLoading(); };
 
   const [hash, blob] = await Promise.all([fileHash(file).catch(() => ''), shrink(file).catch(() => null)]);
   if (!blob) { done(); return snack('写真を読み込めませんでした', 'err'); }
@@ -413,7 +440,6 @@ $('cam').addEventListener('change', async (ev) => {
   const cid = sess ? sess.cid : uuid();
   let localId = null;
   try { localId = await outbox.add({ buf: await blob.arrayBuffer(), takenAt, cid, col, hash }); } catch (_) {}
-  snack('<b>送信中…</b>' + LABEL[col], '');
 
   let r = null, route = '';
   if (sess && directEnabled()) {
@@ -460,12 +486,17 @@ $('cam').addEventListener('change', async (ev) => {
 });
 
 async function swapFile(fileId) {
-  try { const r = await api('swap', { fileId }); snack('<b>' + esc(r.name) + ' に変更しました</b>'); refreshStatus(); if (state.listLoaded) loadList(); }
-  catch (e) { snack(esc(e.message), 'err'); }
+  try {
+    const r = await withLoading('変更中…', () => api('swap', { fileId }));
+    buzz(); snack('<b>' + esc(r.name) + ' に変更しました</b>'); syncLater();
+  } catch (e) { snack(esc(e.message), 'err'); }
 }
 async function confirmCell(d) {
-  try { await api('confirm', { dateKey: d.dateKey, col: d.col }); buzz(); snack('<b>確認済みにしました</b>'); refreshStatus(); if (state.listLoaded) loadList(); }
-  catch (e) { snack(esc(e.message), 'err'); }
+  try {
+    await withLoading('保存中…', () => api('confirm', { dateKey: d.dateKey, col: d.col }));
+    applyLocal(d.dateKey, d.col, { confirmed: true, warn: false });
+    buzz(); snack('<b>確認済みにしました</b>'); syncLater();
+  } catch (e) { snack(esc(e.message), 'err'); }
 }
 
 async function shrink(file) {
@@ -521,19 +552,25 @@ async function loadList() {
     const d = await api('list');
     d.rows.sort((a, b) => (a.dateKey < b.dateKey ? -1 : 1)); // 21日を一番上、20日を一番下
     state.list = d;
+    renderList();
+  } catch (e) { snack(esc(e.message), 'err'); }
+}
+function renderList() {
+  const d = state.list;
+  {
     markAnomalies(d.rows);
     $('total').innerHTML = '<div class="p">' + esc(d.periodName) + '</div>' +
       '<div class="v"><span>' + fmt(d.total) + '<small>km</small></span><span class="sl">／</span><span>' + fmt(d.yen) + '<small>円</small></span></div>';
     $('rows').innerHTML = d.rows.map((r, i) =>
       '<tr class="' + (r.future ? 'future' : r.today ? 'today' : '') + '"><td><span class="c">' + r.label + '</span></td>' +
       kmCell(r.dep, i, 8, r.future) + kmCell(r.ret, i, 9, r.future) +
-      '<td><span class="c' + (r.distBad ? ' bad' : '') + '">' + (r.dist === null ? '' : fmt(r.dist)) + '</span></td></tr>').join('');
+      '<td><span class="c' + (r.distBad ? ' bad' : '') + '"><span class="v">' + (r.dist === null ? '' : fmt(r.dist)) + '</span></span></td></tr>').join('');
     if (!state.scrolledToday) {  // 初回は今日の行が見える位置まで送る
       state.scrolledToday = true;
       const t = document.querySelector('#rows tr.today');
       if (t) t.scrollIntoView({ block: 'center' });
     }
-  } catch (e) { snack(esc(e.message), 'err'); }
+  }
 }
 function markAnomalies(rows) {
   let prev = null;
@@ -547,9 +584,8 @@ function cellClass(c) { return c.bad ? 'bad' : c.warn ? 'warn' : c.km === null ?
 function kmCell(c, i, col, future) {
   const cls = cellClass(c);
   let html = c.km === null ? (c.warn ? ic('warn', 's') : '—') : fmt(c.km);
-  if (c.km !== null && cls === 'warn') html = ic('warn', 's') + html;
   if (cls === 'ok') html += ic('check', 's');
-  return '<td><button class="c ' + cls + '" data-i="' + i + '" data-col="' + col + '"' + (future ? ' disabled' : '') + '>' + html + '</button></td>';
+  return '<td><button class="c ' + cls + '" data-i="' + i + '" data-col="' + col + '"' + (future ? ' disabled' : '') + '><span class="v">' + html + '</span></button></td>';
 }
 $('rows').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-i]');
@@ -570,7 +606,8 @@ async function openEditor(d) {
   tag.innerHTML = (t[0] ? ic(t[0], 's') : '') + t[1];
   $('sheetKm').value = d.km === null || d.km === undefined ? '' : d.km;
   $('sheetConfirm').disabled = d.km === null || d.km === undefined || !!d.confirmed;
-  $('sheetPhoto').textContent = d.fileId ? '読み込み中…' : '写真なし';
+  if (d.fileId) $('sheetPhoto').innerHTML = '<svg class="spinner" viewBox="0 0 48 48" aria-label="読み込み中"><circle cx="24" cy="24" r="19"/></svg>';
+  else $('sheetPhoto').textContent = '写真なし';
   $('sheetBg').classList.add('show');
   if (d.fileId) {
     try { const p = await api('photo', { fileId: d.fileId }); if (editing === d) $('sheetPhoto').innerHTML = '<img alt="' + esc(p.name) + '" src="data:image/jpeg;base64,' + p.image + '">'; }
@@ -583,24 +620,30 @@ $('sheetBg').addEventListener('click', (e) => { if (e.target === $('sheetBg')) c
 $('sheetSave').addEventListener('click', async () => {
   const km = Number(toHalf($('sheetKm').value).replace(/[^\d]/g, ''));
   if (!editing || !km) return snack('距離計の数値を入力してください', 'err');
+  const d = editing;
   try {
-    const r = await api('correct', { dateKey: editing.dateKey, col: editing.col, km });
+    const r = await withLoading('保存中…', () => api('correct', { dateKey: d.dateKey, col: d.col, km }));
+    r.warnings = r.warnings || [];
     closeSheet(); buzz();
+    applyLocal(d.dateKey, d.col, { km, manual: true, confirmed: false, warn: r.warnings.length > 0 });
     snack('<b>保存しました</b>' + (r.warnings.length ? esc(r.warnings.join(' / ')) : ''));
-    loadList(); refreshStatus();
+    syncLater();
   } catch (e) { snack(esc(e.message), 'err'); }
 });
 $('sheetConfirm').addEventListener('click', async () => { const d = editing; closeSheet(); await confirmCell(d); });
 $('sheetSwap').addEventListener('click', async () => {
   const d = editing; closeSheet();
-  try { await api('swapDay', { dateKey: d.dateKey }); buzz(); snack('<b>' + d.label + ' の出発と帰宅を入れ替えました</b>'); loadList(); refreshStatus(); }
-  catch (e) { snack(esc(e.message), 'err'); }
+  try {
+    await withLoading('入れ替え中…', () => api('swapDay', { dateKey: d.dateKey }));
+    applyLocal(d.dateKey, 'swap');
+    buzz(); snack('<b>' + d.label + ' の出発と帰宅を入れ替えました</b>'); syncLater();
+  } catch (e) { snack(esc(e.message), 'err'); }
 });
 
 /* ===== 初回登録 ===== */
 $('regBtn').addEventListener('click', async () => {
   try {
-    const s = await api('register', { empId: toHalf($('empId').value), direct: directEnabled(), origin: location.origin });
+    const s = await withLoading('登録中…', () => api('register', { empId: toHalf($('empId').value), direct: directEnabled(), origin: location.origin }));
     state.status = s; state.sessions = s.uploads || {};
     $('reg').hidden = true; setCol(defaultCol(), false); render();
     snack('<b>' + esc(s.name) + ' さんで登録しました</b>');
@@ -680,6 +723,33 @@ $('snackX').addEventListener('click', hideSnack);
     } else { t.style.transform = ''; t.style.opacity = ''; snackTimer = setTimeout(hideSnack, 5000); }
   });
 })();
+
+/* ===== ロード画面 ===== */
+let loadCount = 0;
+function showLoading(msg, sub) { loadCount++; $('loadingMsg').textContent = msg || '保存中…'; $('loadingSub').textContent = sub || ''; $('loading').classList.add('show'); }
+function hideLoading() { loadCount = Math.max(0, loadCount - 1); if (!loadCount) $('loading').classList.remove('show'); }
+async function withLoading(msg, fn, sub) { showLoading(msg, sub); try { return await fn(); } finally { hideLoading(); } }
+
+/* ===== 保存後はサーバーを待たずに手元の表示を更新（その後、裏で最新化） ===== */
+function applyLocal(dateKey, col, patch) {
+  if (state.list) {
+    const r = state.list.rows.find((x) => x.dateKey === dateKey);
+    if (r) {
+      if (col === 'swap') { const t = r.dep; r.dep = r.ret; r.ret = t; } else Object.assign(col === 8 ? r.dep : r.ret, patch);
+      r.dist = r.dep.km !== null && r.dep.km !== undefined && r.ret.km !== null && r.ret.km !== undefined ? r.ret.km - r.dep.km : null;
+      state.list.total = state.list.rows.reduce((a, x) => a + (x.dist || 0), 0);
+      state.list.yen = Math.round(state.list.total * (state.list.rate || 0));
+      renderList();
+    }
+  }
+  const s = state.status;
+  if (s && s.dateKey === dateKey) {
+    if (col === 'swap') { const [a, b] = s.slots; s.slots = [{ ...b, col: 8, label: '出発' }, { ...a, col: 9, label: '帰宅' }]; }
+    else Object.assign(s.slots.find((x) => x.col === col), patch);
+    render();
+  }
+}
+function syncLater() { setTimeout(() => { refreshStatus(); if (state.listLoaded) loadList(); }, 400); }
 
 /* ===== 共通 ===== */
 function dateLabelFromKey(k) { const [y, m, d] = k.split('-').map(Number); return m + '/' + d + '(' + '日月火水木金土'[new Date(y, m - 1, d).getDay()] + ')'; }
