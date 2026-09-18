@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>交通費メーター</title>
+<title>交通費の記録</title>
 <!-- GASへの接続を先に張っておく（初回通信の短縮） -->
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://script.googleusercontent.com">
@@ -38,17 +38,12 @@
   }
   .who { font-size: 14px; color: var(--sub); }
   .who b { color: var(--ink); font-weight: 600; font-size: 16px; }
-  .tabs { display: flex; background: var(--line); border-radius: 999px; padding: 3px; }
-  .tabs button {
-    border: 0; background: transparent; color: var(--sub); font: inherit; font-size: 14px;
-    padding: 6px 14px; border-radius: 999px;
-  }
-  .tabs button[aria-selected="true"] { background: var(--card); color: var(--ink); font-weight: 600; }
-  main { flex: 1; overflow-y: auto; padding: 4px 16px 180px; }
+  main { flex: 1; overflow-y: auto; padding: 4px 16px 40px; }
   .date { font-size: 14px; color: var(--sub); margin: 8px 2px 10px; }
 
   /* 距離計（この画面の主役） */
   .slot { margin-bottom: 14px; }
+  h2.sec { font-size: 15px; margin: 22px 2px 0; color: var(--sub); font-weight: 600; }
   .slot-head { display: flex; align-items: baseline; justify-content: space-between; margin: 0 2px 6px; }
   .slot-name { font-size: 18px; font-weight: 700; }
   .slot-state { font-size: 13px; color: var(--sub); }
@@ -70,25 +65,10 @@
   .dist { text-align: right; font-size: 14px; color: var(--sub); margin: 2px 2px 0; }
   .dist b { color: var(--ink); font-size: 18px; }
 
-  /* 撮影ボタン */
-  .dock {
-    position: fixed; left: 0; right: 0; bottom: 0;
-    padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
-    background: linear-gradient(to top, var(--paper) 70%, transparent);
-  }
-  .shutter {
-    display: flex; align-items: center; justify-content: center; gap: 10px;
-    width: 100%; height: 76px; border-radius: 18px; background: var(--sign); color: #fff;
-    font-size: 22px; font-weight: 700; letter-spacing: .02em; cursor: pointer; user-select: none;
-  }
-  .shutter:active { transform: scale(.985); }
-  .shutter.busy { opacity: .7; pointer-events: none; }
-  .shutter svg { width: 28px; height: 28px; }
-  .hint { text-align: center; font-size: 12px; color: var(--sub); margin-top: 6px; }
 
   /* トースト */
   .toast {
-    position: fixed; left: 16px; right: 16px; bottom: calc(128px + env(safe-area-inset-bottom));
+    position: fixed; left: 16px; right: 16px; bottom: calc(20px + env(safe-area-inset-bottom));
     background: var(--ink); color: var(--paper); border-radius: 14px; padding: 14px 16px;
     display: flex; align-items: center; gap: 12px; font-size: 15px;
     transform: translateY(20px); opacity: 0; pointer-events: none; transition: transform .18s, opacity .18s;
@@ -98,10 +78,6 @@
   .toast .msg b { display: block; font-size: 17px; }
   .toast.ok { background: var(--ok); color: #fff; }
   .toast.err { background: var(--err); color: #fff; }
-  .toast button {
-    border: 1px solid rgba(255,255,255,.7); background: transparent; color: inherit;
-    font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 8px; white-space: nowrap;
-  }
 
   /* 記録一覧 */
   .total { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 8px 0 14px; }
@@ -144,7 +120,6 @@
   .reg h1 { font-size: 22px; margin: 0 0 6px; }
   .reg p { color: var(--sub); margin: 0 0 18px; font-size: 14px; }
 
-  .debug { font: 12px ui-monospace, Menlo, monospace; color: var(--sub); white-space: pre-wrap; margin-top: 16px; }
   [hidden] { display: none !important; }
   :focus-visible { outline: 3px solid var(--sign); outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
@@ -153,20 +128,12 @@
 <body>
 <header>
   <div class="who" id="who">読み込み中…</div>
-  <div class="tabs" role="tablist">
-    <button role="tab" aria-selected="true" data-tab="shoot">撮影</button>
-    <button role="tab" aria-selected="false" data-tab="list">記録</button>
-  </div>
 </header>
 
 <main>
-  <section id="view-shoot">
+  <section id="view-main">
     <div class="date" id="today"></div>
     <div id="slots"></div>
-    <div class="debug" id="debug" hidden></div>
-  </section>
-
-  <section id="view-list" hidden>
     <div class="total" id="total"><div class="p">読み込み中…</div></div>
     <table>
       <thead><tr><th>日付</th><th>出発</th><th>帰宅</th><th>距離</th></tr></thead>
@@ -185,18 +152,9 @@
   </section>
 </main>
 
-<div class="dock" id="dock">
-  <label class="shutter" id="shutter">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
-    <span id="shutterLabel">出発を撮影</span>
-    <input id="cam" type="file" accept="image/*" capture="environment" hidden>
-  </label>
-  <div class="hint">「保存完了」が出たら、すぐ閉じて大丈夫です</div>
-</div>
 
 <div class="toast" id="toast" role="status" aria-live="polite">
   <div class="msg" id="toastMsg"></div>
-  <button id="toastBtn" hidden></button>
 </div>
 
 <div class="sheet-bg" id="sheetBg">
@@ -218,22 +176,14 @@
 /* ===== 設定（デプロイ時に書き換える） ===== */
 const LIFF_ID = 'ここにLIFF ID';
 const GAS_URL = 'ここにGASウェブアプリのURL（/exec）';
-const MAX_EDGE = 1600;   // 送信前に縮小する長辺（px）
-const JPEG_Q = 0.8;
 
 const LABEL = { 8: '出発', 9: '帰宅' };
-const DEBUG = new URLSearchParams(location.search).has('debug');
 const $ = (id) => document.getElementById(id);
-const state = { status: null, next: 8, list: null };
+const state = { list: null };
 
-/* ===== LIFF 初期化（画面表示とは並行して進める） ===== */
-const sdkLoaded = new Promise((res, rej) => {
-  if (window.liff) return res();
-  $('liffsdk').addEventListener('load', res);
-  $('liffsdk').addEventListener('error', () => rej(new Error('LINEの読み込みに失敗しました')));
-});
+/* ===== LIFF 初期化 ===== */
 const ready = (async () => {
-  await sdkLoaded;
+  if (!window.liff) await new Promise((res) => $('liffsdk').addEventListener('load', res));
   await liff.init({ liffId: LIFF_ID });
   if (!liff.isLoggedIn()) { liff.login(); return new Promise(() => {}); }
   return liff.getIDToken();
@@ -241,7 +191,6 @@ const ready = (async () => {
 
 async function api(action, data = {}) {
   const idToken = await ready;
-  const t = performance.now();
   if (!idToken) throw new Error('LINEのIDトークンを取得できません（LIFF設定のScopeで openid をオンにしてください）');
   let res;
   try {
@@ -255,54 +204,33 @@ async function api(action, data = {}) {
   try { j = JSON.parse(text); } catch (_) {
     throw new Error('GASの応答が不正です（HTTP ' + res.status + '）：' + text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 150));
   }
-  j._ms = Math.round(performance.now() - t);
   if (!j.ok) throw new Error(j.error || '通信エラー');
   return j;
 }
-/** 応答を待たずに投げる（画面を閉じても送信は続く） */
-function fire(action, data = {}) {
-  return ready.then((idToken) => fetch(GAS_URL, {
-    method: 'POST', keepalive: true, body: JSON.stringify({ action, idToken, ...data }),
-  }).then((r) => r.json()).catch(() => null));
+
+/* ===== 起動：今日の状況と今期の一覧を並行で読み込む ===== */
+load();
+function load() {
+  api('status').then((s) => {
+    if (!s.registered) return showReg();
+    renderToday(s);
+  }).catch((e) => toast(esc(e.message), 'err'));
+  loadList();
 }
 
-/* ===== 起動直後：status で準備（撮影している間にサーバー側を温める） ===== */
-const t0 = performance.now();
-function dbg(line) {
-  if (!DEBUG) return;
-  $('debug').hidden = false;
-  $('debug').textContent += line + '\n';
-}
-ready.then(() => dbg('LIFF初期化 ' + Math.round(performance.now() - t0) + 'ms')).catch(showFatal);
-refreshStatus().then(() => flushOutbox());
-
-async function refreshStatus() {
-  try {
-    const s = await api('status');
-    dbg('status ' + s._ms + 'ms（サーバー ' + s.serverMs + 'ms）');
-    state.status = s;
-    if (!s.registered) return showView('reg');
-    renderStatus();
-  } catch (e) {
-    toast(e.message, 'err');
-  }
-}
-
-function renderStatus() {
-  const s = state.status;
+function renderToday(s) {
   $('who').innerHTML = '<b>' + esc(s.name) + '</b> さん';
   $('today').textContent = s.dateLabel + ' の記録';
-  state.next = s.next;
   const [dep, ret] = s.slots;
   $('slots').innerHTML = slotHtml(dep) + slotHtml(ret) +
-    (dep.km !== null && ret.km !== null ? '<div class="dist">本日の移動 <b>' + fmt(ret.km - dep.km) + '</b> km</div>' : '');
-  updateShutter();
+    (dep.km !== null && ret.km !== null ? '<div class="dist">本日の移動 <b>' + fmt(ret.km - dep.km) + '</b> km</div>' : '') +
+    '<h2 class="sec">今期の記録</h2>';
 }
 
 function slotHtml(sl) {
   let stateText = '未撮影', cls = '';
   if (sl.km !== null) { stateText = sl.warn ? '要確認' : '記録済み'; cls = sl.warn ? 'warn' : 'ok'; }
-  else if (sl.saved) { stateText = sl.warn ? '読み取れませんでした（記録タブで入力）' : '保存済み・読み取り中'; cls = sl.warn ? 'warn' : ''; }
+  else if (sl.saved) { stateText = sl.warn ? '読み取れませんでした（下の一覧から入力）' : '保存済み・読み取り中'; cls = sl.warn ? 'warn' : ''; }
   return '<div class="slot"><div class="slot-head"><span class="slot-name">' + sl.label + '</span>' +
     '<span class="slot-state ' + cls + '">' + stateText + '</span></div>' + odoHtml(sl.km, sl.saved && sl.km === null) + '</div>';
 }
@@ -315,130 +243,7 @@ function odoHtml(km, waiting) {
     '<span class="unit">km</span></div>';
 }
 
-function updateShutter() {
-  const s = state.status;
-  const bothDone = s && s.slots.every((x) => x.saved);
-  $('shutterLabel').textContent = bothDone ? '撮り直す（帰宅）' : LABEL[state.next] + 'を撮影';
-}
-
-/* ===== 撮影 → 縮小 → 保存 → トースト ===== */
-$('cam').addEventListener('change', async (ev) => {
-  const file = ev.target.files && ev.target.files[0];
-  ev.target.value = '';
-  if (!file) return;
-  const takenAt = Date.now();
-  $('shutter').classList.add('busy');
-  toast('<b>保存中…</b>', '');
-  const t1 = performance.now();
-  let b64;
-  try {
-    b64 = await shrink(file);
-  } catch (e) {
-    $('shutter').classList.remove('busy');
-    return toast('写真を読み込めませんでした。もう一度撮影してください。', 'err');
-  }
-  const t2 = performance.now();
-  try {
-    const r = await api('upload', { image: b64, takenAt });
-    const t3 = performance.now();
-    afterSaved(r);
-    dbg('縮小 ' + Math.round(t2 - t1) + 'ms / 送信〜保存 ' + Math.round(t3 - t2) + 'ms（サーバー ' + r.serverMs + 'ms）/ 撮影後合計 ' + Math.round(t3 - t1) + 'ms / ' + Math.round(b64.length * 0.75 / 1024) + 'KB');
-  } catch (e) {
-    const queued = await outbox.add({ image: b64, takenAt }).then(() => true).catch(() => false);
-    toast('<b>送信できませんでした</b>' + esc(e.message) + (queued ? '<br>写真は端末に保存し、次に開いたとき自動で送ります。' : ''), 'err', null, 15000);
-  } finally {
-    $('shutter').classList.remove('busy');
-  }
-});
-
-function afterSaved(r) {
-  toast('<b>保存完了（' + esc(r.name) + '）</b>閉じても大丈夫です', 'ok', {
-    label: r.otherLabel + 'に変更', onClick: () => swap(r.fileId),
-  }, 7000);
-  // 画面の状態を先に更新
-  if (state.status) {
-    const sl = state.status.slots.find((x) => x.col === r.col);
-    if (sl) { sl.saved = true; sl.km = null; sl.warn = false; }
-    state.next = 9;
-    renderStatus();
-  }
-  // AI読み取りを依頼（待たない）。画面が開いたままなら終わり次第表示を更新
-  fire('process', { fileId: r.fileId }).then((res) => { if (res && res.ok) refreshStatus(); });
-}
-
-async function swap(fileId) {
-  try {
-    const r = await api('swap', { fileId });
-    toast('<b>' + esc(r.name) + ' に変更しました</b>', 'ok');
-    refreshStatus();
-  } catch (e) { toast(e.message, 'err'); }
-}
-
-/** 長辺 MAX_EDGE px の JPEG に縮小して base64 を返す */
-async function shrink(file) {
-  let src;
-  try {
-    src = await createImageBitmap(file, { imageOrientation: 'from-image' });
-  } catch (_) {
-    src = await new Promise((res, rej) => {
-      const img = new Image();
-      img.onload = () => res(img);
-      img.onerror = rej;
-      img.src = URL.createObjectURL(file);
-    });
-  }
-  const w = src.width, h = src.height;
-  const k = Math.min(1, MAX_EDGE / Math.max(w, h));
-  const c = document.createElement('canvas');
-  c.width = Math.round(w * k); c.height = Math.round(h * k);
-  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
-  if (src.close) src.close();
-  return c.toDataURL('image/jpeg', JPEG_Q).split(',')[1];
-}
-
-/* ===== 送れなかった写真の一時保存（IndexedDB）と自動再送 ===== */
-const outbox = {
-  db: null,
-  open() {
-    if (this.db) return Promise.resolve(this.db);
-    return new Promise((res, rej) => {
-      const r = indexedDB.open('odo-outbox', 1);
-      r.onupgradeneeded = () => r.result.createObjectStore('q', { keyPath: 'id', autoIncrement: true });
-      r.onsuccess = () => res(this.db = r.result);
-      r.onerror = () => rej(r.error);
-    });
-  },
-  async tx(mode, fn) {
-    const db = await this.open();
-    return new Promise((res, rej) => {
-      const t = db.transaction('q', mode);
-      const out = fn(t.objectStore('q'));
-      t.oncomplete = () => res(out && out.result);
-      t.onerror = () => rej(t.error);
-    });
-  },
-  add(item) { return this.tx('readwrite', (s) => s.add(item)); },
-  all() { return this.tx('readonly', (s) => s.getAll()); },
-  del(id) { return this.tx('readwrite', (s) => s.delete(id)); },
-};
-
-async function flushOutbox() {
-  let items;
-  try { items = await outbox.all(); } catch (_) { return; }
-  if (!items || !items.length) return;
-  let sent = 0;
-  for (const it of items) {
-    try {
-      const r = await api('upload', { image: it.image, takenAt: it.takenAt });
-      await outbox.del(it.id);
-      fire('process', { fileId: r.fileId });
-      sent++;
-    } catch (_) { break; }
-  }
-  if (sent) { toast('<b>未送信だった写真を ' + sent + ' 件送りました</b>', 'ok'); refreshStatus(); }
-}
-
-/* ===== 記録タブ ===== */
+/* ===== 今期の一覧 ===== */
 async function loadList() {
   try {
     const d = await api('list');
@@ -448,7 +253,7 @@ async function loadList() {
     $('rows').innerHTML = d.rows.map((r, i) =>
       '<tr><td><span class="c">' + r.label + '</span></td>' + kmCell(r.dep, i, 8) + kmCell(r.ret, i, 9) +
       '<td><span class="c">' + (r.dist === null ? '' : fmt(r.dist)) + '</span></td></tr>').join('');
-  } catch (e) { toast(e.message, 'err'); }
+  } catch (e) { if (!/未登録/.test(e.message)) toast(esc(e.message), 'err'); }
 }
 function kmCell(c, i, col) {
   const cls = c.warn ? 'warn' : c.km === null ? 'none' : c.manual ? 'man' : '';
@@ -460,6 +265,7 @@ $('rows').addEventListener('click', (e) => {
   if (b) openSheet(state.list.rows[Number(b.dataset.i)], Number(b.dataset.col));
 });
 
+/* ===== 写真の確認・数値の修正 ===== */
 let editing = null;
 async function openSheet(row, col) {
   const c = col === 8 ? row.dep : row.ret;
@@ -485,47 +291,35 @@ $('sheetSave').addEventListener('click', async () => {
     const r = await api('correct', { ...editing, km });
     closeSheet();
     toast('<b>保存しました</b>' + (r.warnings.length ? '⚠️ ' + esc(r.warnings.join(' / ')) : ''), r.warnings.length ? '' : 'ok');
-    loadList();
-    refreshStatus();
-  } catch (e) { toast(e.message, 'err'); }
+    load();
+  } catch (e) { toast(esc(e.message), 'err'); }
 });
 
-/* ===== 初回登録 ===== */
+/* ===== 初回登録（トークで社員番号を送っても登録できる） ===== */
+function showReg() {
+  $('view-main').hidden = true;
+  $('view-reg').hidden = false;
+}
 $('regBtn').addEventListener('click', async () => {
   try {
     const s = await api('register', { empId: toHalf($('empId').value) });
-    state.status = s;
-    showView('shoot');
-    renderStatus();
+    $('view-reg').hidden = true;
+    $('view-main').hidden = false;
+    renderToday(s);
+    loadList();
     toast('<b>' + esc(s.name) + ' さんで登録しました</b>', 'ok');
-  } catch (e) { toast(e.message, 'err'); }
+  } catch (e) { toast(esc(e.message), 'err'); }
 });
 
-/* ===== 画面切り替え・共通 ===== */
-document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => {
-  showView(b.dataset.tab);
-  if (b.dataset.tab === 'list') loadList();
-}));
-function showView(name) {
-  ['shoot', 'list', 'reg'].forEach((v) => { $('view-' + v).hidden = v !== name; });
-  document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
-  $('dock').hidden = name === 'reg';
-}
-
+/* ===== 共通 ===== */
 let toastTimer = null;
-function toast(html, kind, action, ms) {
+function toast(html, kind) {
   const t = $('toast');
   $('toastMsg').innerHTML = html;
   t.className = 'toast show ' + (kind || '');
-  const btn = $('toastBtn');
-  if (action) {
-    btn.hidden = false; btn.textContent = action.label;
-    btn.onclick = () => { t.classList.remove('show'); action.onClick(); };
-  } else { btn.hidden = true; btn.onclick = null; }
   clearTimeout(toastTimer);
-  if (kind) toastTimer = setTimeout(() => t.classList.remove('show'), ms || (kind === 'err' ? 8000 : 4000));
+  toastTimer = setTimeout(() => t.classList.remove('show'), kind === 'err' ? 15000 : 4000);
 }
-function showFatal(e) { toast(e.message || String(e), 'err'); }
 function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
 function toHalf(s) { return String(s).replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)); }
 function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
