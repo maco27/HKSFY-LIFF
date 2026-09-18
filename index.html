@@ -43,10 +43,16 @@
 
   /* ===== トップバー ===== */
   header { height: calc(var(--hdr) + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 8px 0 20px; flex: none; display: flex; align-items: center; gap: 8px; }
-  .who { flex: 1; min-width: 0; font-size: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .tabs { display: flex; background: var(--surface-ch); border-radius: 999px; padding: 4px; }
-  .tabs button { border: 0; background: transparent; color: var(--on-surface-v); font-size: 15px; font-weight: 600; padding: 0 16px; height: 40px; border-radius: 999px; transition: background .25s var(--spring); }
-  .tabs button[aria-selected="true"] { background: var(--primary); color: var(--on-primary); }
+  .who-wrap { flex: 1; min-width: 0; }
+  .who { display: inline-flex; align-items: center; max-width: 100%; height: 40px; padding: 0 16px; border-radius: 20px;
+    background: var(--primary-container); color: var(--on-primary-container); font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .who:empty { display: none; }
+  /* 撮影／記録：どこを押しても切り替わるスイッチ */
+  .psw { position: relative; flex: none; width: 148px; height: 44px; border: 0; border-radius: 22px; background: var(--surface-ch); padding: 4px; display: grid; grid-template-columns: 1fr 1fr; cursor: pointer; touch-action: manipulation; }
+  .psw .knob { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); background: var(--primary); border-radius: 18px; transition: transform .35s var(--spring); }
+  .psw[aria-checked="true"] .knob { transform: translateX(100%); }
+  .psw span { position: relative; z-index: 1; display: grid; place-items: center; font-size: 15px; font-weight: 700; color: var(--on-surface-v); pointer-events: none; transition: color .2s; }
+  .psw[aria-checked="false"] span:first-of-type, .psw[aria-checked="true"] span:last-of-type { color: var(--on-primary); }
   .ib { width: 48px; height: 48px; border: 0; background: transparent; border-radius: 999px; display: grid; place-items: center; color: var(--on-surface-v); }
   .ib:active { background: var(--surface-ch); }
   .ib.spin .i { animation: spin .8s linear infinite; }
@@ -83,21 +89,21 @@
   .chip.man { background: color-mix(in srgb, var(--manual) 16%, var(--surface)); color: var(--manual); }
   .chip.warn { background: color-mix(in srgb, var(--warn) 16%, var(--surface)); color: var(--warn); }
   .chip.bad { background: color-mix(in srgb, var(--error) 14%, var(--surface)); color: var(--error); }
-  .slot-r { display: flex; align-items: center; gap: 8px; }
-  .odo { flex: 1; display: flex; align-items: center; gap: 4px; background: var(--odo); padding: 8px 12px; border-radius: 20px; }
+  .odo { display: flex; align-items: center; gap: 4px; background: var(--odo); padding: 8px 6px 8px 12px; border-radius: 20px; }
   .odo .d { flex: 1; max-width: 38px; height: 46px; display: grid; place-items: center; background: #15171A; color: #F2F4F5; border-radius: 6px;
     font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; box-shadow: inset 0 -10px 12px rgba(255,255,255,.04), inset 0 8px 10px rgba(0,0,0,.5); }
   .odo .d.blank { color: #3A3E44; }
   .odo.man .d:not(.blank) { color: #7FE3A5; }
   .odo.bad .d:not(.blank) { color: #FF8A80; }
   .odo .u { color: #8A919A; font-size: 13px; margin-left: 4px; }
-  .edit { width: 56px; height: 62px; border: 0; border-radius: 20px; background: var(--surface-ch); color: var(--on-surface); display: grid; place-items: center; flex: none; transition: border-radius .3s var(--spring); }
-  .edit:active { border-radius: 12px; }
+  .edit { margin-left: auto; width: 48px; height: 48px; border: 0; border-radius: 14px; background: transparent; color: #C9CED6; display: grid; place-items: center; flex: none; transition: background .2s, border-radius .3s var(--spring); }
+  .edit:active { background: #33373D; border-radius: 10px; }
   .dist { display: flex; justify-content: flex-end; align-items: baseline; gap: 6px; color: var(--on-surface-v); font-size: 14px; margin: 0 4px; }
   .dist b { color: var(--on-surface); font-size: 22px; font-variant-numeric: tabular-nums; }
   .dist.bad b { color: var(--error); }
 
   .bottom { margin-top: auto; padding: 8px 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; }
+  .hint { margin: 0; text-align: center; font-size: 13px; color: var(--on-surface-v); }
   /* 撮影ボタン：M3E の XL ボタン。押すと角が変形する */
   .shoot { height: 136px; border-radius: 68px; background: var(--primary); color: var(--on-primary);
     display: flex; align-items: center; justify-content: center; gap: 14px; font-size: 30px; font-weight: 700; letter-spacing: .04em;
@@ -181,11 +187,10 @@
 </svg>
 
 <header>
-  <div class="who" id="who">&nbsp;</div>
-  <div class="tabs" id="tabs" role="tablist">
-    <button role="tab" aria-selected="true" data-page="0">撮影</button>
-    <button role="tab" aria-selected="false" data-page="1">記録</button>
-  </div>
+  <div class="who-wrap"><span class="who" id="who"></span></div>
+  <button class="psw" id="psw" role="switch" aria-checked="false" aria-label="撮影と記録の切り替え">
+    <i class="knob"></i><span>撮影</span><span>記録</span>
+  </button>
   <button class="ib" id="reload" aria-label="更新"><svg class="i"><use href="#i-reload"/></svg></button>
 </header>
 
@@ -202,6 +207,7 @@
       <div id="slots"><div class="skel" style="height:104px"></div><div class="skel" style="height:104px;margin-top:16px"></div></div>
     </div>
     <div class="bottom">
+      <p class="hint">保存完了が出たら、画面を閉じて大丈夫です</p>
       <label class="shoot" id="shoot">
         <svg class="i"><use href="#i-camera"/></svg><span id="shootLabel">撮影</span>
         <input id="cam" type="file" accept="image/*" capture="environment" hidden>
@@ -368,9 +374,9 @@ function slotHtml(sl, bad) {
   const lead = sl.km === null ? 0 : Math.max(0, 6 - String(sl.km).length);
   const odoCls = sl.km === null ? '' : bad ? ' bad' : sl.manual ? ' man' : '';
   return '<div class="slot"><div class="slot-h"><span class="slot-n">' + sl.label + '</span><span class="chip ' + cls + '">' + text + '</span></div>' +
-    '<div class="slot-r"><div class="odo' + odoCls + '" aria-label="' + (sl.km === null ? '未記録' : sl.km + 'キロ') + '">' +
+    '<div class="odo' + odoCls + '" aria-label="' + (sl.km === null ? '未記録' : sl.km + 'キロ') + '">' +
     [...digits].map((d, i) => '<span class="d' + (i < lead || sl.km === null ? ' blank' : '') + '">' + (sl.km === null ? '–' : d) + '</span>').join('') +
-    '<span class="u">km</span></div>' +
+    '<span class="u">km</span>' +
     '<button class="edit" data-col="' + sl.col + '" aria-label="' + sl.label + 'を編集">' + ic('pencil') + '</button></div></div>';
 }
 $('slots').addEventListener('click', (e) => {
@@ -513,6 +519,7 @@ async function loadList() {
   state.listLoaded = true;
   try {
     const d = await api('list');
+    d.rows.sort((a, b) => (a.dateKey < b.dateKey ? -1 : 1)); // 21日を一番上、20日を一番下
     state.list = d;
     markAnomalies(d.rows);
     $('total').innerHTML = '<div class="p">' + esc(d.periodName) + '</div>' +
@@ -521,11 +528,16 @@ async function loadList() {
       '<tr class="' + (r.future ? 'future' : r.today ? 'today' : '') + '"><td><span class="c">' + r.label + '</span></td>' +
       kmCell(r.dep, i, 8, r.future) + kmCell(r.ret, i, 9, r.future) +
       '<td><span class="c' + (r.distBad ? ' bad' : '') + '">' + (r.dist === null ? '' : fmt(r.dist)) + '</span></td></tr>').join('');
+    if (!state.scrolledToday) {  // 初回は今日の行が見える位置まで送る
+      state.scrolledToday = true;
+      const t = document.querySelector('#rows tr.today');
+      if (t) t.scrollIntoView({ block: 'center' });
+    }
   } catch (e) { snack(esc(e.message), 'err'); }
 }
 function markAnomalies(rows) {
   let prev = null;
-  [...rows].reverse().forEach((r) => {
+  rows.forEach((r) => { // 古い日付から順に、前回より小さい値を探す
     ['dep', 'ret'].forEach((k) => { const c = r[k]; if (c.km !== null) { c.bad = prev !== null && c.km < prev; prev = c.km; } });
     r.distBad = r.dist !== null && (r.dist < 0 || r.dist > MAX_DAY_KM);
     if (r.dist !== null && r.dist < 0) { r.dep.bad = true; r.ret.bad = true; }
@@ -599,13 +611,24 @@ $('regBtn').addEventListener('click', async () => {
 const pager = $('pager');
 let pageIdx = 0;
 function goPage(i) { pager.scrollTo({ left: i * pager.clientWidth, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }
-document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('click', () => goPage(Number(b.dataset.page))));
+let progScroll = null; // スイッチで動かしている最中はスクロール位置による切り替えを無視（ちらつき防止）
+$('psw').addEventListener('click', () => {
+  buzz();
+  const i = pageIdx === 0 ? 1 : 0;
+  setPage(i);
+  clearTimeout(progScroll);
+  progScroll = setTimeout(() => { progScroll = null; }, 600);
+  goPage(i);
+});
+function setPage(i) {
+  pageIdx = i;
+  $('psw').setAttribute('aria-checked', String(i === 1));
+  if (i === 1 && !state.listLoaded) loadList();
+}
 pager.addEventListener('scroll', () => {
   const i = Math.round(pager.scrollLeft / Math.max(1, pager.clientWidth));
-  if (i === pageIdx) return;
-  pageIdx = i;
-  document.querySelectorAll('#tabs button').forEach((b) => b.setAttribute('aria-selected', String(Number(b.dataset.page) === i)));
-  if (i === 1 && !state.listLoaded) loadList();
+  if (progScroll) return;
+  if (i !== pageIdx) setPage(i);
 }, { passive: true });
 window.addEventListener('resize', () => pager.scrollTo({ left: pageIdx * pager.clientWidth }));
 
