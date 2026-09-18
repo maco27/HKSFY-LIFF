@@ -3,139 +3,95 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>メーター撮影</title>
+<title>標準カメラ方式テスト</title>
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://script.googleusercontent.com">
 <link rel="preconnect" href="https://api.line.me">
 <script async id="liffsdk" src="https://static.line-scdn.net/liff/edge/2/sdk.js" charset="utf-8"></script>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; height: 100%; background: #000; color: #fff; overflow: hidden;
+  html, body { margin: 0; min-height: 100%; background: #111; color: #fff;
     font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; }
-  video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .top { position: fixed; top: calc(12px + env(safe-area-inset-top)); left: 0; right: 0; text-align: center; pointer-events: none; }
-  .slot { display: inline-block; background: rgba(0,0,0,.55); padding: 6px 16px; border-radius: 999px; font-size: 18px; font-weight: 700; }
-  .guide { position: fixed; left: 8%; right: 8%; top: 38%; height: 18%; border: 2px solid rgba(255,255,255,.6); border-radius: 12px; pointer-events: none; }
-  .guide span { position: absolute; top: -26px; left: 0; right: 0; text-align: center; font-size: 13px; color: rgba(255,255,255,.85); }
-  .shoot {
-    position: fixed; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom)); transform: translateX(-50%);
-    width: 84px; height: 84px; border-radius: 50%; border: 5px solid #fff; background: rgba(255,255,255,.25);
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 24px; gap: 16px; text-align: center; }
+  .tag { font-size: 13px; color: #8A939B; }
+  label.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    background: #1E4E9C; color: #fff; font-size: 20px; font-weight: 700;
+    padding: 22px 32px; border-radius: 18px; min-width: 220px;
   }
-  .shoot::after { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: #fff; }
-  .shoot:active::after { inset: 10px; }
-  .shoot:disabled { opacity: .4; }
-  .flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity .25s; }
-  .flash.on { opacity: .8; transition: none; }
-  .fallback { position: fixed; inset: 0; display: grid; place-content: center; gap: 14px; text-align: center; padding: 24px; }
-  .fallback p { margin: 0; color: #bbb; font-size: 14px; }
-  .fallback .slot { justify-self: center; }
-  .btn { display: block; background: #1E4E9C; color: #fff; font-size: 20px; font-weight: 700; padding: 20px 28px; border-radius: 16px; border: 0; font-family: inherit; }
+  label.btn svg { width: 26px; height: 26px; }
+  label.btn:active { transform: scale(.97); }
+  p.hint { color: #9AA3AB; font-size: 13px; max-width: 320px; margin: 0; }
   .toast {
-    position: fixed; left: 16px; right: 16px; top: calc(40px + env(safe-area-inset-top)); text-align: center;
-    background: rgba(20,22,24,.92); border-radius: 18px; padding: 22px 16px; font-size: 16px; display: none;
+    position: fixed; left: 16px; right: 16px; top: calc(24px + env(safe-area-inset-top));
+    background: rgba(20,22,24,.95); border-radius: 16px; padding: 18px 16px; font-size: 15px;
+    display: none; text-align: left;
   }
   .toast.show { display: block; }
-  .toast b { display: block; font-size: 22px; margin-bottom: 4px; }
+  .toast b { display: block; font-size: 18px; margin-bottom: 4px; }
   .toast.ok b { color: #5BD18C; }
   .toast.err b { color: #FF7A6B; }
-  .toast button { margin-top: 14px; background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.6); border-radius: 10px; padding: 8px 14px; font: inherit; font-size: 14px; }
-  .reg { position: fixed; inset: 0; background: #111; display: grid; place-content: center; gap: 12px; padding: 24px; text-align: center; }
-  .reg input { font-size: 28px; text-align: center; padding: 10px; border-radius: 10px; border: 0; width: 220px; }
+  .debug {
+    position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: #000; color: #8A939B; font: 12px ui-monospace, Menlo, monospace; white-space: pre-wrap;
+    max-height: 40vh; overflow-y: auto;
+  }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
-<video id="video" playsinline muted autoplay></video>
-<div class="top"><span class="slot" id="slot">カメラ起動中…</span></div>
-<div class="guide" id="guide" hidden><span>距離計（ODO）の数字をこの枠に</span></div>
-<button class="shoot" id="shoot" aria-label="撮影して送信" disabled></button>
-<div class="flash" id="flash"></div>
-
-<!-- カメラ映像が使えない端末用：標準カメラを開く -->
-<label class="fallback" id="fallback" hidden>
+<div class="tag" id="tag">読み込み中…</div>
+<label class="btn" id="btn">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+  <span id="btnLabel">タップして撮影</span>
   <input id="file" type="file" accept="image/*" capture="environment" hidden>
-  <span class="slot" id="slot2"></span>
-  <span class="btn">タップして撮影</span>
-  <p id="fallbackMsg"></p>
 </label>
+<p class="hint">標準のカメラアプリが開くはずです。背面カメラで開くか、許可の確認が出るかを確認してください。</p>
 
-<div class="reg" id="reg" hidden>
-  <div>社員番号（6桁）を登録してください</div>
-  <input id="empId" inputmode="numeric" maxlength="6" autocomplete="off">
-  <button class="btn" id="regBtn">登録する</button>
-</div>
-
-<div class="toast" id="toast"><div id="toastMsg"></div><button id="toastBtn" hidden></button></div>
+<div class="toast" id="toast"><div id="toastMsg"></div></div>
+<div class="debug" id="debug"></div>
 <canvas id="canvas" hidden></canvas>
 
 <script>
-/* ===== 設定（記録用LIFFの index.html と同じ GAS_URL） ===== */
-const LIFF_ID = 'ここにこの撮影用LIFFのLIFF ID';
-const GAS_URL = 'ここにGASウェブアプリのURL（/exec）';
-const MAX_EDGE = 1600;       // 送信する画像の長辺（px）
+/* ===== 設定 ===== */
+const LIFF_ID = '2011171675-bSqxbh7t';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycby_wWHyTDQs3FDwBQKTtLPie91Goe2DrSHnUslWPpDTz9qKYBM0Ka7o4Y1mcIflX3LWqg/exec';
+const MAX_EDGE = 1600;
 const JPEG_Q = 0.85;
-const AUTO_CLOSE_MS = 2500;  // 保存完了後に自動で閉じるまでの時間（0で閉じない）
-// 'native' : 標準カメラ（許可確認なし・画質が良い。画面タップ→撮影→「写真を使用」）
-// 'stream' : 画面内カメラ（開いた瞬間に映像が出るが、LINEでは毎回カメラ許可の確認が出る）
-const CAMERA_MODE = 'native';
+const AUTO_CLOSE_MS = 0; // テスト中は0（自動で閉じない）。本採用時は 2500 などに
 
 const $ = (id) => document.getElementById(id);
-const LABEL = { 8: '出発', 9: '帰宅' };
-let nextCol = null, busy = false, closeTimer = null;
-
-/* ===== 1. カメラ起動（LINEの初期化を待たない） ===== */
-if (CAMERA_MODE === 'native') startNative(); else startCamera();
-
-function startNative() {
-  $('video').hidden = true; $('shoot').hidden = true;
-  document.querySelector('.top').hidden = true;
-  $('fallback').hidden = false;
-  $('fallbackMsg').textContent = '';
-  // 端末によってはタップなしで開ける（開かない場合は画面をタップ）
-  try { $('file').click(); } catch (_) {}
+const log = [];
+function dbg(line) {
+  log.push(line);
+  $('debug').textContent = log.join('\n');
 }
+const mark = { open: performance.now() };
 
-async function startCamera() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-    });
-    $('video').srcObject = stream;
-    await $('video').play();
-    $('shoot').disabled = false;
-    $('guide').hidden = false;
-    updateSlot();
-  } catch (e) {
-    $('video').hidden = true; $('shoot').hidden = true;
-    $('fallback').hidden = false;
-    $('fallbackMsg').textContent = 'カメラ映像を表示できないため、標準のカメラで撮影します。';
-    updateSlot();
-  }
-}
-
-/* ===== 2. 並行して LINE 初期化とサーバー準備 ===== */
+/* ===== LINE初期化（並行して進める） ===== */
 const ready = (async () => {
   if (!window.liff) await new Promise((res) => $('liffsdk').addEventListener('load', res));
   await liff.init({ liffId: LIFF_ID });
+  dbg('LIFF初期化 ' + ms() + 'ms');
   if (!liff.isLoggedIn()) { liff.login(); return new Promise(() => {}); }
   return liff.getIDToken();
 })();
+ready.catch((e) => toast('LIFFエラー', e.message, 'err'));
 
 async function api(action, data = {}) {
   const idToken = await ready;
-  if (!idToken) throw new Error('LINEのIDトークンを取得できません（LIFF設定のScopeで openid をオンにしてください）');
+  if (!idToken) throw new Error('IDトークンを取得できません（LIFF設定のScopeで openid を確認）');
   let res;
   try {
-    // Content-Type を付けない（text/plain）→ CORSプリフライトなし
     res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action, idToken, ...data }) });
   } catch (e) {
-    throw new Error('GASに接続できません。GAS_URL（/exec）と、デプロイの「アクセスできるユーザー：全員」を確認してください。（' + e.message + '）');
+    throw new Error('GASに接続できません（' + e.message + '）');
   }
   const text = await res.text();
   let j;
   try { j = JSON.parse(text); } catch (_) {
-    throw new Error('GASの応答が不正です（HTTP ' + res.status + '）：' + text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 150));
+    throw new Error('GASの応答が不正です（HTTP ' + res.status + '）：' + text.slice(0, 150));
   }
   if (!j.ok) throw new Error(j.error || '通信エラー');
   return j;
@@ -144,41 +100,19 @@ function fire(action, data) {
   ready.then((idToken) => fetch(GAS_URL, { method: 'POST', keepalive: true,
     body: JSON.stringify({ action, idToken, ...data }) })).catch(() => {});
 }
+function ms() { return Math.round(performance.now() - mark.open); }
 
-api('status').then((s) => {
-  if (!s.registered) { $('reg').hidden = false; return; }
-  nextCol = s.next;
-  updateSlot();
-  flushOutbox();
-}).catch((e) => toast('エラー', esc(e.message), 'err'));
+/* ===== 標準カメラを開く（ページを開いたら自動で試す。ブロックされたらボタンでタップ） ===== */
+window.addEventListener('load', () => { try { $('file').click(); } catch (_) {} });
+$('btn').addEventListener('click', () => dbg('タップで撮影ダイアログを開いた ' + ms() + 'ms'));
 
-function updateSlot() {
-  const text = nextCol ? LABEL[nextCol] + 'の距離計を撮影' : '距離計を撮影';
-  $('slot2').textContent = text;
-  if (!$('video').srcObject && $('fallback').hidden) return;
-  $('slot').textContent = text;
-}
-
-/* ===== 3. シャッター → その場で送信 ===== */
-$('shoot').addEventListener('click', () => {
-  if (busy) return;
-  const v = $('video');
-  if (!v.videoWidth) return;
-  flash();
-  const k = Math.min(1, MAX_EDGE / Math.max(v.videoWidth, v.videoHeight));
-  const c = $('canvas');
-  c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k);
-  c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
-  v.pause(); // 撮った画面で止める
-  send(c.toDataURL('image/jpeg', JPEG_Q).split(',')[1], Date.now());
-});
-
-// 標準カメラで撮った場合
 $('file').addEventListener('change', async (e) => {
   const f = e.target.files && e.target.files[0];
   e.target.value = '';
-  if (!f) return;
-  const takenAt = Date.now();
+  if (!f) { dbg('キャンセルされた ' + ms() + 'ms'); return; }
+  dbg('写真を選択 ' + ms() + 'ms（' + Math.round(f.size / 1024) + 'KB, ' + f.type + '）');
+  $('btnLabel').textContent = '送信中…';
+
   let src;
   try { src = await createImageBitmap(f, { imageOrientation: 'from-image' }); }
   catch (_) { src = await new Promise((r, j) => { const i = new Image(); i.onload = () => r(i); i.onerror = j; i.src = URL.createObjectURL(f); }); }
@@ -186,103 +120,33 @@ $('file').addEventListener('change', async (e) => {
   const c = $('canvas');
   c.width = Math.round(src.width * k); c.height = Math.round(src.height * k);
   c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
-  send(c.toDataURL('image/jpeg', JPEG_Q).split(',')[1], takenAt);
-});
+  const image = c.toDataURL('image/jpeg', JPEG_Q).split(',')[1];
+  dbg('縮小完了 ' + ms() + 'ms（' + c.width + '×' + c.height + ', ' + Math.round(image.length * 0.75 / 1024) + 'KB）');
 
-async function send(image, takenAt) {
-  busy = true;
-  $('shoot').disabled = true;
-  toast('保存中…', '', '');
   try {
-    const r = await api('upload', { image, takenAt });
-    fire('process', { fileId: r.fileId });   // AI読み取りを依頼（待たない）
-    nextCol = 9;
-    toast('✅ 保存完了', r.name + '<br>閉じても大丈夫です', 'ok', {
-      label: r.otherLabel + 'に変更',
-      onClick: async () => {
-        clearTimeout(closeTimer);
-        try { const s = await api('swap', { fileId: r.fileId }); toast('✅ 変更しました', s.name, 'ok'); autoClose(); }
-        catch (e) { toast('エラー', esc(e.message), 'err'); }
-      },
-    });
-    autoClose();
-  } catch (e) {
-    const saved = await outbox.add({ image, takenAt }).then(() => true).catch(() => false);
-    toast('送信できませんでした', esc(e.message) + (saved ? '<br><br>写真は端末に保存し、次に開いたとき自動で送ります。' : ''), 'err');
-    resume();
+    const r = await api('upload', { image, takenAt: Date.now() });
+    dbg('保存完了 ' + ms() + 'ms（' + r.name + '）');
+    fire('process', { fileId: r.fileId });
+    toast('✅ 保存完了', r.name + '<br>閉じても大丈夫です', 'ok');
+    $('btnLabel').textContent = 'もう一度撮影';
+    if (AUTO_CLOSE_MS) setTimeout(() => liff.closeWindow(), AUTO_CLOSE_MS);
+  } catch (err) {
+    dbg('エラー ' + ms() + 'ms：' + err.message);
+    toast('送信できませんでした', err.message, 'err');
+    $('btnLabel').textContent = 'もう一度試す';
   }
-}
-
-function autoClose() {
-  if (!AUTO_CLOSE_MS) return resume();
-  clearTimeout(closeTimer);
-  closeTimer = setTimeout(() => {
-    const s = $('video').srcObject;
-    if (s) s.getTracks().forEach((t) => t.stop());
-    liff.closeWindow();
-  }, AUTO_CLOSE_MS);
-}
-function resume() {
-  busy = false;
-  $('shoot').disabled = false;
-  if ($('video').srcObject) $('video').play();
-  updateSlot();
-}
-
-/* ===== 送れなかった写真（端末に保存して次回自動送信） ===== */
-const outbox = {
-  open() {
-    return new Promise((res, rej) => {
-      const r = indexedDB.open('odo-outbox', 1);
-      r.onupgradeneeded = () => r.result.createObjectStore('q', { keyPath: 'id', autoIncrement: true });
-      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
-    });
-  },
-  async run(mode, fn) {
-    const db = await this.open();
-    return new Promise((res, rej) => {
-      const t = db.transaction('q', mode); const q = fn(t.objectStore('q'));
-      t.oncomplete = () => res(q.result); t.onerror = () => rej(t.error);
-    });
-  },
-  add(x) { return this.run('readwrite', (s) => s.add(x)); },
-  all() { return this.run('readonly', (s) => s.getAll()); },
-  del(id) { return this.run('readwrite', (s) => s.delete(id)); },
-};
-async function flushOutbox() {
-  let items = [];
-  try { items = await outbox.all(); } catch (_) { return; }
-  for (const it of items) {
-    try {
-      const r = await api('upload', { image: it.image, takenAt: it.takenAt });
-      await outbox.del(it.id);
-      fire('process', { fileId: r.fileId });
-    } catch (_) { return; }
-  }
-  if (items.length) api('status').then((s) => { nextCol = s.next; updateSlot(); }).catch(() => {});
-}
-
-/* ===== 初回登録（未登録の人だけ） ===== */
-$('regBtn').addEventListener('click', async () => {
-  try {
-    const s = await api('register', { empId: $('empId').value.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)) });
-    $('reg').hidden = true;
-    nextCol = s.next; updateSlot();
-    toast('登録しました', s.name + ' さん', 'ok'); setTimeout(() => $('toast').classList.remove('show'), 2000);
-  } catch (e) { toast('エラー', esc(e.message), 'err'); }
 });
 
 /* ===== 表示 ===== */
-function flash() { const f = $('flash'); f.classList.add('on'); requestAnimationFrame(() => f.classList.remove('on')); }
-function toast(title, body, kind, action) {
+api('status').then((s) => {
+  $('tag').textContent = s.registered ? s.name + ' さん' : '未登録（先にトークで社員番号を送ってください）';
+}).catch((e) => { $('tag').textContent = ''; dbg('status エラー：' + e.message); });
+
+function toast(title, body, kind) {
   const t = $('toast');
   $('toastMsg').innerHTML = '<b>' + title + '</b>' + (body || '');
   t.className = 'toast show ' + (kind || '');
-  const b = $('toastBtn');
-  if (action) { b.hidden = false; b.textContent = action.label; b.onclick = action.onClick; } else { b.hidden = true; }
-  if (kind === 'err') setTimeout(() => t.classList.remove('show'), 20000);
 }
-function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 </script>
 </body>
 </html>
