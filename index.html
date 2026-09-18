@@ -7,7 +7,8 @@
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://script.googleusercontent.com">
 <link rel="preconnect" href="https://api.line.me">
-<script async id="liffsdk" src="https://static.line-scdn.net/liff/edge/2/sdk.js" charset="utf-8"></script>
+<link rel="preconnect" href="https://static.line-scdn.net">
+<link rel="preconnect" href="https://www.googleapis.com">
 <style>
   :root {
     --sign: #1E4E9C; --asphalt: #2B2F33; --paper: #F6F7F8; --line: #DDE1E5;
@@ -117,6 +118,7 @@
   .reg { padding: 24px 20px; }
   .reg h1 { font-size: 22px; margin: 0 0 6px; }
   .reg p { color: var(--sub); margin: 0 0 18px; font-size: 14px; }
+  .debug { position: fixed; left: 8px; right: 8px; bottom: 8px; background: rgba(0,0,0,.8); color: #9fe; font: 11px ui-monospace, Menlo, monospace; white-space: pre-wrap; padding: 8px; border-radius: 8px; max-height: 38vh; overflow-y: auto; pointer-events: none; }
   [hidden] { display: none !important; }
   :focus-visible { outline: 3px solid var(--sign); outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
@@ -191,25 +193,45 @@
 </div>
 
 <canvas id="canvas" hidden></canvas>
+<div class="debug" id="debug" hidden></div>
 
 <script>
 /* ===== 設定（デプロイ時に書き換える） ===== */
 const LIFF_ID = '2011171675-iQ6TuVBt';
 const GAS_URL = 'https://script.google.com/macros/s/AKfycby_wWHyTDQs3FDwBQKTtLPie91Goe2DrSHnUslWPpDTz9qKYBM0Ka7o4Y1mcIflX3LWqg/exec';
-const MAX_EDGE = 1600;   // 送信前に縮小する長辺（px）
-const JPEG_Q = 0.85;
+const MAX_EDGE = 1280;       // 送信する画像の長辺（px）。数字が読める範囲で小さく
+const JPEG_Q = 0.8;
+const DIRECT_UPLOAD = true;  // 端末→Driveへ直接送る（失敗したら自動でGAS経由に切り替え）
 
 const LABEL = { 8: '出発', 9: '帰宅' };
 const $ = (id) => document.getElementById(id);
-const state = { status: null, list: null };
+const state = { status: null, list: null, session: null };
+const DEBUG = /[?&]debug=1/.test(location.search) || /debug%3D1/.test(location.search);
+function dbg(msg) {
+  if (!DEBUG) return;
+  $('debug').hidden = false;
+  $('debug').textContent += Math.round(performance.now()) + 'ms ' + msg + '\n';
+}
+dbg('画面表示（ボタン操作可）');
 
-/* ===== LIFF 初期化（画面表示と並行） ===== */
-const ready = (async () => {
-  if (!window.liff) await new Promise((res) => $('liffsdk').addEventListener('load', res));
-  await liff.init({ liffId: LIFF_ID });
-  if (!liff.isLoggedIn()) { liff.login(); return new Promise(() => {}); }
-  return liff.getIDToken();
-})();
+/* ===== LIFF：ページの読み込みを止めないよう、表示後にSDKを読み込む ===== */
+const ready = new Promise((resolve, reject) => {
+  const start = () => {
+    const sc = document.createElement('script');
+    sc.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
+    sc.onload = async () => {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        dbg('LIFF初期化完了');
+        if (!liff.isLoggedIn()) { liff.login(); return; }
+        resolve(liff.getIDToken());
+      } catch (e) { reject(e); }
+    };
+    sc.onerror = () => reject(new Error('LINEの読み込みに失敗しました。通信状況を確認してください。'));
+    document.head.appendChild(sc);
+  };
+  if (document.readyState === 'complete') start(); else window.addEventListener('load', start);
+});
 
 async function api(action, data = {}) {
   const idToken = await ready;
@@ -219,14 +241,22 @@ async function api(action, data = {}) {
     // Content-Type を付けない（text/plain）→ CORSプリフライトなし
     res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action, idToken, ...data }) });
   } catch (e) {
-    throw new Error('GASに接続できません。GAS_URL（/exec）と、デプロイの「アクセスできるユーザー：全員」を確認してください。（' + e.message + '）');
+    throw new Error('GASに接続できません。通信状況を確認してください。（' + e.message + '）');
   }
   const text = await res.text();
   let j;
   try { j = JSON.parse(text); } catch (_) {
     throw new Error('GASの応答が不正です（HTTP ' + res.status + '）：' + text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 150));
   }
-  if (!j.ok) throw new Error(j.error || '通信エラー');
+  if (!j.ok) {
+    // 長時間開きっぱなしでログイン情報が切れた場合は1回だけ開き直す
+    if (/有効期限/.test(j.error) && !sessionStorage.getItem('relogin')) {
+      sessionStorage.setItem('relogin', '1');
+      location.reload();
+    }
+    throw new Error(j.error || '通信エラー');
+  }
+  sessionStorage.removeItem('relogin');
   return j;
 }
 /** 応答を待たずに投げる（画面を閉じても送信は続く） */
@@ -236,13 +266,19 @@ function fire(action, data = {}) {
   }).then((r) => r.json()).catch(() => null));
 }
 
-/* ===== 起動：撮影している間にサーバー側の準備を済ませる ===== */
+/* ===== 起動：撮影している間に、サーバー準備と直接アップロード先の用意を済ませる ===== */
 refreshStatus().then(flushOutbox);
+
+function directEnabled() {
+  return DIRECT_UPLOAD && localStorage.getItem('noDirect') !== '1';
+}
 
 async function refreshStatus() {
   try {
-    const s = await api('status');
+    const s = await api('status', { direct: directEnabled(), origin: location.origin });
+    dbg('status完了（サーバー ' + s.serverMs + 'ms）' + (s.upload ? ' 直接アップロード先あり' : ''));
     state.status = s;
+    state.session = s.upload || null;
     if (!s.registered) return showView('reg');
     render();
   } catch (e) { toast(esc(e.message), 'err'); }
@@ -255,7 +291,6 @@ function render() {
   chip('chipDep', dep); chip('chipRet', ret);
   const both = dep.saved && ret.saved;
   $('shootLabel').textContent = both ? '帰宅を撮り直す' : LABEL[s.next] + 'を撮影';
-  // 記録タブの今日の欄
   $('today').textContent = s.dateLabel + ' の記録';
   $('slots').innerHTML = slotHtml(dep) + slotHtml(ret) +
     (dep.km !== null && ret.km !== null ? '<div class="dist">本日の移動 <b>' + fmt(ret.km - dep.km) + '</b> km</div>' : '');
@@ -277,34 +312,66 @@ function slotHtml(sl) {
     '<span class="unit">km</span></div></div>';
 }
 
-/* ===== 撮影 → 縮小 → 保存 → トースト ===== */
+/* ===== 撮影 → 縮小 → 端末に保存 → 送信 ===== */
 $('cam').addEventListener('change', async (ev) => {
   const file = ev.target.files && ev.target.files[0];
   ev.target.value = '';
   if (!file) return;
   const takenAt = Date.now();
+  const t0 = performance.now();
   $('shoot').classList.add('busy');
-  toast('<b>保存中…</b>', '');
-  let b64;
-  try { b64 = await shrink(file); }
+  let blob;
+  try { blob = await shrink(file); }
   catch (e) { $('shoot').classList.remove('busy'); return toast('写真を読み込めませんでした。もう一度撮影してください。', 'err'); }
-  try {
-    const r = await api('upload', { image: b64, takenAt });
-    toast('<b>保存完了（' + esc(r.name) + '）</b>閉じても大丈夫です', 'ok', { label: r.otherLabel + 'に変更', onClick: () => swap(r.fileId) }, 7000);
-    if (state.status) {
-      const sl = state.status.slots.find((x) => x.col === r.col);
-      if (sl) { sl.saved = true; sl.km = null; sl.warn = false; }
-      state.status.next = 9;
-      render();
+  const t1 = performance.now();
+
+  // ① まず端末に保存（数十ms）。ここで閉じても次回開いたときに自動送信される
+  const sess = state.session && state.session.expiresAt > Date.now() + 30000 ? state.session : null;
+  const cid = sess ? sess.cid : uuid();
+  let localId = null;
+  try { localId = await outbox.add({ buf: await blob.arrayBuffer(), takenAt, cid }); } catch (_) {}
+  toast('<b>送信中…</b>' + (localId ? '端末に一時保存しました' : ''), '');
+  const t2 = performance.now();
+
+  // ② 送信（直接アップロード → だめならGAS経由）
+  let r = null, route = '';
+  if (sess && directEnabled()) {
+    try {
+      const res = await fetch(sess.url, { method: 'PUT', headers: { 'Content-Type': 'image/jpeg' }, body: blob });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const j = await res.json();
+      r = { fileId: j.id, name: j.name || sess.name, col: sess.col, otherLabel: sess.otherLabel };
+      route = '直接';
+    } catch (e) {
+      dbg('直接アップロード失敗 → GAS経由に切替：' + e.message);
+      localStorage.setItem('noDirect', '1');
     }
-    // AI読み取りを依頼（待たない）。開いたままなら終わり次第表示を更新
-    fire('process', { fileId: r.fileId }).then((res) => { if (res && res.ok) refreshStatus(); });
-  } catch (e) {
-    const queued = await outbox.add({ image: b64, takenAt }).then(() => true).catch(() => false);
-    toast('<b>送信できませんでした</b>' + esc(e.message) + (queued ? '<br>写真は端末に保存し、次に開いたとき自動で送ります。' : ''), 'err', null, 15000);
-  } finally {
-    $('shoot').classList.remove('busy');
+    state.session = null; // セッションは1回使い切り
   }
+  if (!r) {
+    try {
+      r = await api('upload', { image: await toBase64(blob), takenAt, cid });
+      route = 'GAS経由';
+    } catch (e) {
+      $('shoot').classList.remove('busy');
+      return toast('<b>送信できませんでした</b>' + esc(e.message) + (localId ? '<br>写真は端末に保存済みです。次に開いたとき自動で送ります。' : ''), 'err', null, 15000);
+    }
+  }
+  const t3 = performance.now();
+  if (localId) outbox.del(localId).catch(() => {});
+  $('shoot').classList.remove('busy');
+  dbg('縮小 ' + Math.round(t1 - t0) + 'ms / 端末保存 ' + Math.round(t2 - t1) + 'ms / 送信(' + route + ') ' + Math.round(t3 - t2) +
+      'ms / 撮影後合計 ' + Math.round(t3 - t0) + 'ms / ' + Math.round(blob.size / 1024) + 'KB');
+
+  toast('<b>保存完了（' + esc(r.name) + '）</b>閉じても大丈夫です', 'ok', { label: r.otherLabel + 'に変更', onClick: () => swap(r.fileId) }, 7000);
+  if (state.status) {
+    const sl = state.status.slots.find((x) => x.col === r.col);
+    if (sl) { sl.saved = true; sl.km = null; sl.warn = false; }
+    state.status.next = 9;
+    render();
+  }
+  // AI読み取りを依頼（待たない）。終わったら表示と次のアップロード先を更新
+  fire('process', { fileId: r.fileId }).then(() => refreshStatus());
 });
 
 async function swap(fileId) {
@@ -315,7 +382,7 @@ async function swap(fileId) {
   } catch (e) { toast(esc(e.message), 'err'); }
 }
 
-/** 長辺 MAX_EDGE px の JPEG に縮小して base64 を返す */
+/** 長辺 MAX_EDGE px の JPEG Blob に縮小 */
 async function shrink(file) {
   let src;
   try { src = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
@@ -327,15 +394,26 @@ async function shrink(file) {
   c.width = Math.round(src.width * k); c.height = Math.round(src.height * k);
   c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
   if (src.close) src.close();
-  return c.toDataURL('image/jpeg', JPEG_Q).split(',')[1];
+  return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('toBlob failed'))), 'image/jpeg', JPEG_Q));
+}
+function toBase64(blob) {
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(String(fr.result).split(',')[1]);
+    fr.onerror = rej;
+    fr.readAsDataURL(blob);
+  });
+}
+function uuid() {
+  return (crypto.randomUUID && crypto.randomUUID()) || (Date.now().toString(36) + Math.random().toString(36).slice(2));
 }
 
 /* ===== 送れなかった写真を端末に保存し、次回起動時に自動送信 ===== */
 const outbox = {
   open() {
     return new Promise((res, rej) => {
-      const r = indexedDB.open('odo-outbox', 1);
-      r.onupgradeneeded = () => r.result.createObjectStore('q', { keyPath: 'id', autoIncrement: true });
+      const r = indexedDB.open('odo-outbox', 2);
+      r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('q')) r.result.createObjectStore('q', { keyPath: 'id', autoIncrement: true }); };
       r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
     });
   },
@@ -356,9 +434,10 @@ async function flushOutbox() {
   let sent = 0;
   for (const it of items) {
     try {
-      const r = await api('upload', { image: it.image, takenAt: it.takenAt });
+      const image = it.image || await toBase64(new Blob([it.buf], { type: 'image/jpeg' }));
+      const r = await api('upload', { image, takenAt: it.takenAt, cid: it.cid, retry: true });
       await outbox.del(it.id);
-      fire('process', { fileId: r.fileId });
+      if (!r.duplicate) fire('process', { fileId: r.fileId });
       sent++;
     } catch (_) { break; }
   }
@@ -418,8 +497,8 @@ $('sheetSave').addEventListener('click', async () => {
 /* ===== 初回登録 ===== */
 $('regBtn').addEventListener('click', async () => {
   try {
-    const s = await api('register', { empId: toHalf($('empId').value) });
-    state.status = s;
+    const s = await api('register', { empId: toHalf($('empId').value), direct: directEnabled(), origin: location.origin });
+    state.status = s; state.session = s.upload || null;
     showView('shoot'); render();
     toast('<b>' + esc(s.name) + ' さんで登録しました</b>', 'ok');
   } catch (e) { toast(esc(e.message), 'err'); }
