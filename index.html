@@ -216,8 +216,8 @@
 
 <script>
 /* ===== 設定（デプロイ時に書き換える） ===== */
-const LIFF_ID = '2011171675-iQ6TuVBt';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycby_wWHyTDQs3FDwBQKTtLPie91Goe2DrSHnUslWPpDTz9qKYBM0Ka7o4Y1mcIflX3LWqg/exec';
+const LIFF_ID = 'ここにLIFF ID';
+const GAS_URL = 'ここにGASウェブアプリのURL（/exec）';
 const MAX_EDGE = 1600;   // 送信前に縮小する長辺（px）
 const JPEG_Q = 0.8;
 
@@ -242,9 +242,19 @@ const ready = (async () => {
 async function api(action, data = {}) {
   const idToken = await ready;
   const t = performance.now();
-  // Content-Type を付けない（text/plain）→ CORSプリフライトなし
-  const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action, idToken, ...data }) });
-  const j = await res.json();
+  if (!idToken) throw new Error('LINEのIDトークンを取得できません（LIFF設定のScopeで openid をオンにしてください）');
+  let res;
+  try {
+    // Content-Type を付けない（text/plain）→ CORSプリフライトなし
+    res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action, idToken, ...data }) });
+  } catch (e) {
+    throw new Error('GASに接続できません。GAS_URL（/exec）と、デプロイの「アクセスできるユーザー：全員」を確認してください。（' + e.message + '）');
+  }
+  const text = await res.text();
+  let j;
+  try { j = JSON.parse(text); } catch (_) {
+    throw new Error('GASの応答が不正です（HTTP ' + res.status + '）：' + text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 150));
+  }
   j._ms = Math.round(performance.now() - t);
   if (!j.ok) throw new Error(j.error || '通信エラー');
   return j;
@@ -335,7 +345,7 @@ $('cam').addEventListener('change', async (ev) => {
     dbg('縮小 ' + Math.round(t2 - t1) + 'ms / 送信〜保存 ' + Math.round(t3 - t2) + 'ms（サーバー ' + r.serverMs + 'ms）/ 撮影後合計 ' + Math.round(t3 - t1) + 'ms / ' + Math.round(b64.length * 0.75 / 1024) + 'KB');
   } catch (e) {
     const queued = await outbox.add({ image: b64, takenAt }).then(() => true).catch(() => false);
-    toast(queued ? '<b>送信できませんでした</b>写真は端末に保存しました。次に開いたとき自動で送ります。' : e.message, 'err');
+    toast('<b>送信できませんでした</b>' + esc(e.message) + (queued ? '<br>写真は端末に保存し、次に開いたとき自動で送ります。' : ''), 'err', null, 15000);
   } finally {
     $('shutter').classList.remove('busy');
   }
