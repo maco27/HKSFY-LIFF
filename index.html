@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>交通費メーター</title>
+<!-- GASへの接続を先に張っておく（初回通信の短縮） -->
+<link rel="preconnect" href="https://script.google.com">
+<link rel="preconnect" href="https://script.googleusercontent.com">
+<link rel="preconnect" href="https://api.line.me">
+<script async id="liffsdk" src="https://static.line-scdn.net/liff/edge/2/sdk.js" charset="utf-8"></script>
+<style>
+  :root {
+    --sign: #1E4E9C;        /* 道路標識の青：操作 */
+    --asphalt: #2B2F33;     /* 距離計の文字盤 */
+    --paper: #F6F7F8;
+    --line: #DDE1E5;
+    --ink: #1C1F22;
+    --sub: #5E666E;
+    --ok: #2F8F5B;
+    --warn: #C98A0B;
+    --err: #C0392B;
+    --card: #FFFFFF;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper: #15181B; --card: #1F2327; --line: #30363B; --ink: #ECEFF1; --sub: #9AA3AB; --asphalt: #0E1012; --sign: #4C7FD6; }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
+    background: var(--paper); color: var(--ink); font-size: 16px; line-height: 1.5;
+    display: flex; flex-direction: column;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px 8px; gap: 12px;
+  }
+  .who { font-size: 14px; color: var(--sub); }
+  .who b { color: var(--ink); font-weight: 600; font-size: 16px; }
+  .tabs { display: flex; background: var(--line); border-radius: 999px; padding: 3px; }
+  .tabs button {
+    border: 0; background: transparent; color: var(--sub); font: inherit; font-size: 14px;
+    padding: 6px 14px; border-radius: 999px;
+  }
+  .tabs button[aria-selected="true"] { background: var(--card); color: var(--ink); font-weight: 600; }
+  main { flex: 1; overflow-y: auto; padding: 4px 16px 180px; }
+  .date { font-size: 14px; color: var(--sub); margin: 8px 2px 10px; }
+
+  /* 距離計（この画面の主役） */
+  .slot { margin-bottom: 14px; }
+  .slot-head { display: flex; align-items: baseline; justify-content: space-between; margin: 0 2px 6px; }
+  .slot-name { font-size: 18px; font-weight: 700; }
+  .slot-state { font-size: 13px; color: var(--sub); }
+  .slot-state.ok { color: var(--ok); }
+  .slot-state.warn { color: var(--warn); font-weight: 600; }
+  .odo {
+    display: flex; align-items: center; gap: 4px; background: var(--asphalt);
+    padding: 10px 12px; border-radius: 10px; min-height: 68px;
+  }
+  .odo .d {
+    flex: 1; max-width: 40px; height: 48px; display: grid; place-items: center;
+    background: #111416; color: #F2F4F5; border-radius: 4px;
+    font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums;
+    box-shadow: inset 0 -10px 12px rgba(255,255,255,.04), inset 0 8px 10px rgba(0,0,0,.5);
+  }
+  .odo .d.blank { color: #3A4046; }
+  .odo .unit { color: #8A939B; font-size: 14px; margin-left: 6px; }
+  .odo.waiting .d { color: #5A636B; }
+  .dist { text-align: right; font-size: 14px; color: var(--sub); margin: 2px 2px 0; }
+  .dist b { color: var(--ink); font-size: 18px; }
+
+  /* 撮影ボタン */
+  .dock {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--paper) 70%, transparent);
+  }
+  .shutter {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; height: 76px; border-radius: 18px; background: var(--sign); color: #fff;
+    font-size: 22px; font-weight: 700; letter-spacing: .02em; cursor: pointer; user-select: none;
+  }
+  .shutter:active { transform: scale(.985); }
+  .shutter.busy { opacity: .7; pointer-events: none; }
+  .shutter svg { width: 28px; height: 28px; }
+  .hint { text-align: center; font-size: 12px; color: var(--sub); margin-top: 6px; }
+
+  /* トースト */
+  .toast {
+    position: fixed; left: 16px; right: 16px; bottom: calc(128px + env(safe-area-inset-bottom));
+    background: var(--ink); color: var(--paper); border-radius: 14px; padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px; font-size: 15px;
+    transform: translateY(20px); opacity: 0; pointer-events: none; transition: transform .18s, opacity .18s;
+  }
+  .toast.show { transform: none; opacity: 1; pointer-events: auto; }
+  .toast .msg { flex: 1; }
+  .toast .msg b { display: block; font-size: 17px; }
+  .toast.ok { background: var(--ok); color: #fff; }
+  .toast.err { background: var(--err); color: #fff; }
+  .toast button {
+    border: 1px solid rgba(255,255,255,.7); background: transparent; color: inherit;
+    font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 8px; white-space: nowrap;
+  }
+
+  /* 記録一覧 */
+  .total { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 8px 0 14px; }
+  .total .p { font-size: 13px; color: var(--sub); }
+  .total .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th { font-size: 12px; color: var(--sub); font-weight: 500; text-align: right; padding: 4px 6px; }
+  th:first-child, td:first-child { text-align: left; }
+  td { padding: 0; border-top: 1px solid var(--line); text-align: right; }
+  td .c { display: block; padding: 11px 6px; font-size: 15px; }
+  td button.c { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: right; }
+  td .c.warn { color: var(--warn); font-weight: 700; }
+  td .c.none { color: var(--sub); }
+  td .c.man::after { content: "手"; font-size: 10px; color: var(--sub); margin-left: 2px; }
+
+  /* 修正シート */
+  .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: flex-end; }
+  .sheet-bg.show { display: flex; }
+  .sheet {
+    width: 100%; background: var(--card); border-radius: 18px 18px 0 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
+    max-height: 92vh; overflow-y: auto;
+  }
+  .sheet h2 { font-size: 18px; margin: 0 0 10px; }
+  .photo { width: 100%; min-height: 120px; background: var(--line); border-radius: 10px; display: grid; place-items: center; color: var(--sub); font-size: 14px; overflow: hidden; }
+  .photo img { width: 100%; display: block; }
+  .field { margin: 14px 0; }
+  .field label { font-size: 13px; color: var(--sub); }
+  .field input {
+    width: 100%; font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 10px 12px;
+    border: 2px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink);
+  }
+  .field input:focus { outline: none; border-color: var(--sign); }
+  .row { display: flex; gap: 10px; }
+  .btn { flex: 1; height: 52px; border-radius: 12px; border: 0; font: inherit; font-size: 16px; font-weight: 700; }
+  .btn.pri { background: var(--sign); color: #fff; }
+  .btn.sec { background: var(--line); color: var(--ink); }
+
+  /* 初回登録 */
+  .reg { padding: 24px 4px; }
+  .reg h1 { font-size: 22px; margin: 0 0 6px; }
+  .reg p { color: var(--sub); margin: 0 0 18px; font-size: 14px; }
+
+  .debug { font: 12px ui-monospace, Menlo, monospace; color: var(--sub); white-space: pre-wrap; margin-top: 16px; }
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 3px solid var(--sign); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="who" id="who">読み込み中…</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="shoot">撮影</button>
+    <button role="tab" aria-selected="false" data-tab="list">記録</button>
+  </div>
+</header>
+
+<main>
+  <section id="view-shoot">
+    <div class="date" id="today"></div>
+    <div id="slots"></div>
+    <div class="debug" id="debug" hidden></div>
+  </section>
+
+  <section id="view-list" hidden>
+    <div class="total" id="total"><div class="p">読み込み中…</div></div>
+    <table>
+      <thead><tr><th>日付</th><th>出発</th><th>帰宅</th><th>距離</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </section>
+
+  <section id="view-reg" class="reg" hidden>
+    <h1>社員番号を登録</h1>
+    <p>最初の1回だけ必要です。交通費シートの社員番号（6桁）を入力してください。</p>
+    <div class="field">
+      <label for="empId">社員番号</label>
+      <input id="empId" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off">
+    </div>
+    <button class="btn pri" id="regBtn" style="width:100%">登録する</button>
+  </section>
+</main>
+
+<div class="dock" id="dock">
+  <label class="shutter" id="shutter">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+    <span id="shutterLabel">出発を撮影</span>
+    <input id="cam" type="file" accept="image/*" capture="environment" hidden>
+  </label>
+  <div class="hint">「保存完了」が出たら、すぐ閉じて大丈夫です</div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <div class="msg" id="toastMsg"></div>
+  <button id="toastBtn" hidden></button>
+</div>
+
+<div class="sheet-bg" id="sheetBg">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <h2 id="sheetTitle"></h2>
+    <div class="photo" id="sheetPhoto">写真なし</div>
+    <div class="field">
+      <label for="sheetKm">距離計（km）</label>
+      <input id="sheetKm" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+    </div>
+    <div class="row">
+      <button class="btn sec" id="sheetCancel">閉じる</button>
+      <button class="btn pri" id="sheetSave">この数値で保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== 設定（デプロイ時に書き換える） ===== */
+const LIFF_ID = '2011171675-iQ6TuVBt';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycby_wWHyTDQs3FDwBQKTtLPie91Goe2DrSHnUslWPpDTz9qKYBM0Ka7o4Y1mcIflX3LWqg/exec';
+const MAX_EDGE = 1600;   // 送信前に縮小する長辺（px）
+const JPEG_Q = 0.8;
+
+const LABEL = { 8: '出発', 9: '帰宅' };
+const DEBUG = new URLSearchParams(location.search).has('debug');
+const $ = (id) => document.getElementById(id);
+const state = { status: null, next: 8, list: null };
+
+/* ===== LIFF 初期化（画面表示とは並行して進める） ===== */
+const sdkLoaded = new Promise((res, rej) => {
+  if (window.liff) return res();
+  $('liffsdk').addEventListener('load', res);
+  $('liffsdk').addEventListener('error', () => rej(new Error('LINEの読み込みに失敗しました')));
+});
+const ready = (async () => {
+  await sdkLoaded;
+  await liff.init({ liffId: LIFF_ID });
+  if (!liff.isLoggedIn()) { liff.login(); return new Promise(() => {}); }
+  return liff.getIDToken();
+})();
+
+async function api(action, data = {}) {
+  const idToken = await ready;
+  const t = performance.now();
+  // Content-Type を付けない（text/plain）→ CORSプリフライトなし
+  const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action, idToken, ...data }) });
+  const j = await res.json();
+  j._ms = Math.round(performance.now() - t);
+  if (!j.ok) throw new Error(j.error || '通信エラー');
+  return j;
+}
+/** 応答を待たずに投げる（画面を閉じても送信は続く） */
+function fire(action, data = {}) {
+  return ready.then((idToken) => fetch(GAS_URL, {
+    method: 'POST', keepalive: true, body: JSON.stringify({ action, idToken, ...data }),
+  }).then((r) => r.json()).catch(() => null));
+}
+
+/* ===== 起動直後：status で準備（撮影している間にサーバー側を温める） ===== */
+const t0 = performance.now();
+function dbg(line) {
+  if (!DEBUG) return;
+  $('debug').hidden = false;
+  $('debug').textContent += line + '\n';
+}
+ready.then(() => dbg('LIFF初期化 ' + Math.round(performance.now() - t0) + 'ms')).catch(showFatal);
+refreshStatus().then(() => flushOutbox());
+
+async function refreshStatus() {
+  try {
+    const s = await api('status');
+    dbg('status ' + s._ms + 'ms（サーバー ' + s.serverMs + 'ms）');
+    state.status = s;
+    if (!s.registered) return showView('reg');
+    renderStatus();
+  } catch (e) {
+    toast(e.message, 'err');
+  }
+}
+
+function renderStatus() {
+  const s = state.status;
+  $('who').innerHTML = '<b>' + esc(s.name) + '</b> さん';
+  $('today').textContent = s.dateLabel + ' の記録';
+  state.next = s.next;
+  const [dep, ret] = s.slots;
+  $('slots').innerHTML = slotHtml(dep) + slotHtml(ret) +
+    (dep.km !== null && ret.km !== null ? '<div class="dist">本日の移動 <b>' + fmt(ret.km - dep.km) + '</b> km</div>' : '');
+  updateShutter();
+}
+
+function slotHtml(sl) {
+  let stateText = '未撮影', cls = '';
+  if (sl.km !== null) { stateText = sl.warn ? '要確認' : '記録済み'; cls = sl.warn ? 'warn' : 'ok'; }
+  else if (sl.saved) { stateText = sl.warn ? '読み取れませんでした（記録タブで入力）' : '保存済み・読み取り中'; cls = sl.warn ? 'warn' : ''; }
+  return '<div class="slot"><div class="slot-head"><span class="slot-name">' + sl.label + '</span>' +
+    '<span class="slot-state ' + cls + '">' + stateText + '</span></div>' + odoHtml(sl.km, sl.saved && sl.km === null) + '</div>';
+}
+
+function odoHtml(km, waiting) {
+  const digits = km === null ? '------' : String(km).padStart(6, '0');
+  const lead = km === null ? 0 : Math.max(0, 6 - String(km).length);
+  return '<div class="odo' + (waiting ? ' waiting' : '') + '" aria-label="' + (km === null ? '未記録' : km + 'キロ') + '">' +
+    [...digits].map((d, i) => '<span class="d' + (i < lead || km === null ? ' blank' : '') + '">' + (km === null ? '–' : d) + '</span>').join('') +
+    '<span class="unit">km</span></div>';
+}
+
+function updateShutter() {
+  const s = state.status;
+  const bothDone = s && s.slots.every((x) => x.saved);
+  $('shutterLabel').textContent = bothDone ? '撮り直す（帰宅）' : LABEL[state.next] + 'を撮影';
+}
+
+/* ===== 撮影 → 縮小 → 保存 → トースト ===== */
+$('cam').addEventListener('change', async (ev) => {
+  const file = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if (!file) return;
+  const takenAt = Date.now();
+  $('shutter').classList.add('busy');
+  toast('<b>保存中…</b>', '');
+  const t1 = performance.now();
+  let b64;
+  try {
+    b64 = await shrink(file);
+  } catch (e) {
+    $('shutter').classList.remove('busy');
+    return toast('写真を読み込めませんでした。もう一度撮影してください。', 'err');
+  }
+  const t2 = performance.now();
+  try {
+    const r = await api('upload', { image: b64, takenAt });
+    const t3 = performance.now();
+    afterSaved(r);
+    dbg('縮小 ' + Math.round(t2 - t1) + 'ms / 送信〜保存 ' + Math.round(t3 - t2) + 'ms（サーバー ' + r.serverMs + 'ms）/ 撮影後合計 ' + Math.round(t3 - t1) + 'ms / ' + Math.round(b64.length * 0.75 / 1024) + 'KB');
+  } catch (e) {
+    const queued = await outbox.add({ image: b64, takenAt }).then(() => true).catch(() => false);
+    toast(queued ? '<b>送信できませんでした</b>写真は端末に保存しました。次に開いたとき自動で送ります。' : e.message, 'err');
+  } finally {
+    $('shutter').classList.remove('busy');
+  }
+});
+
+function afterSaved(r) {
+  toast('<b>保存完了（' + esc(r.name) + '）</b>閉じても大丈夫です', 'ok', {
+    label: r.otherLabel + 'に変更', onClick: () => swap(r.fileId),
+  }, 7000);
+  // 画面の状態を先に更新
+  if (state.status) {
+    const sl = state.status.slots.find((x) => x.col === r.col);
+    if (sl) { sl.saved = true; sl.km = null; sl.warn = false; }
+    state.next = 9;
+    renderStatus();
+  }
+  // AI読み取りを依頼（待たない）。画面が開いたままなら終わり次第表示を更新
+  fire('process', { fileId: r.fileId }).then((res) => { if (res && res.ok) refreshStatus(); });
+}
+
+async function swap(fileId) {
+  try {
+    const r = await api('swap', { fileId });
+    toast('<b>' + esc(r.name) + ' に変更しました</b>', 'ok');
+    refreshStatus();
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+/** 長辺 MAX_EDGE px の JPEG に縮小して base64 を返す */
+async function shrink(file) {
+  let src;
+  try {
+    src = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  } catch (_) {
+    src = await new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => res(img);
+      img.onerror = rej;
+      img.src = URL.createObjectURL(file);
+    });
+  }
+  const w = src.width, h = src.height;
+  const k = Math.min(1, MAX_EDGE / Math.max(w, h));
+  const c = document.createElement('canvas');
+  c.width = Math.round(w * k); c.height = Math.round(h * k);
+  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+  if (src.close) src.close();
+  return c.toDataURL('image/jpeg', JPEG_Q).split(',')[1];
+}
+
+/* ===== 送れなかった写真の一時保存（IndexedDB）と自動再送 ===== */
+const outbox = {
+  db: null,
+  open() {
+    if (this.db) return Promise.resolve(this.db);
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('odo-outbox', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('q', { keyPath: 'id', autoIncrement: true });
+      r.onsuccess = () => res(this.db = r.result);
+      r.onerror = () => rej(r.error);
+    });
+  },
+  async tx(mode, fn) {
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const t = db.transaction('q', mode);
+      const out = fn(t.objectStore('q'));
+      t.oncomplete = () => res(out && out.result);
+      t.onerror = () => rej(t.error);
+    });
+  },
+  add(item) { return this.tx('readwrite', (s) => s.add(item)); },
+  all() { return this.tx('readonly', (s) => s.getAll()); },
+  del(id) { return this.tx('readwrite', (s) => s.delete(id)); },
+};
+
+async function flushOutbox() {
+  let items;
+  try { items = await outbox.all(); } catch (_) { return; }
+  if (!items || !items.length) return;
+  let sent = 0;
+  for (const it of items) {
+    try {
+      const r = await api('upload', { image: it.image, takenAt: it.takenAt });
+      await outbox.del(it.id);
+      fire('process', { fileId: r.fileId });
+      sent++;
+    } catch (_) { break; }
+  }
+  if (sent) { toast('<b>未送信だった写真を ' + sent + ' 件送りました</b>', 'ok'); refreshStatus(); }
+}
+
+/* ===== 記録タブ ===== */
+async function loadList() {
+  try {
+    const d = await api('list');
+    state.list = d;
+    $('total').innerHTML = '<div class="p">今期（' + esc(d.periodName) + '）の合計</div>' +
+      '<div class="v">' + fmt(d.total) + ' km ／ ' + fmt(d.yen) + ' 円</div>';
+    $('rows').innerHTML = d.rows.map((r, i) =>
+      '<tr><td><span class="c">' + r.label + '</span></td>' + kmCell(r.dep, i, 8) + kmCell(r.ret, i, 9) +
+      '<td><span class="c">' + (r.dist === null ? '' : fmt(r.dist)) + '</span></td></tr>').join('');
+  } catch (e) { toast(e.message, 'err'); }
+}
+function kmCell(c, i, col) {
+  const cls = c.warn ? 'warn' : c.km === null ? 'none' : c.manual ? 'man' : '';
+  const text = c.km === null ? (c.warn ? '⚠️' : '—') : (c.warn ? '⚠️' : '') + fmt(c.km);
+  return '<td><button class="c ' + cls + '" data-i="' + i + '" data-col="' + col + '">' + text + '</button></td>';
+}
+$('rows').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-i]');
+  if (b) openSheet(state.list.rows[Number(b.dataset.i)], Number(b.dataset.col));
+});
+
+let editing = null;
+async function openSheet(row, col) {
+  const c = col === 8 ? row.dep : row.ret;
+  editing = { dateKey: row.dateKey, col };
+  $('sheetTitle').textContent = row.label + ' ' + LABEL[col];
+  $('sheetKm').value = c.km === null ? '' : c.km;
+  $('sheetPhoto').textContent = c.fileId ? '写真を読み込み中…' : '写真なし';
+  $('sheetBg').classList.add('show');
+  if (c.fileId) {
+    try {
+      const p = await api('photo', { fileId: c.fileId });
+      $('sheetPhoto').innerHTML = '<img alt="' + esc(p.name) + '" src="data:image/jpeg;base64,' + p.image + '">';
+    } catch (e) { $('sheetPhoto').textContent = e.message; }
+  }
+}
+function closeSheet() { $('sheetBg').classList.remove('show'); editing = null; }
+$('sheetCancel').addEventListener('click', closeSheet);
+$('sheetBg').addEventListener('click', (e) => { if (e.target === $('sheetBg')) closeSheet(); });
+$('sheetSave').addEventListener('click', async () => {
+  const km = Number(toHalf($('sheetKm').value).replace(/[^\d]/g, ''));
+  if (!editing || !km) return toast('距離計の数値を入力してください', 'err');
+  try {
+    const r = await api('correct', { ...editing, km });
+    closeSheet();
+    toast('<b>保存しました</b>' + (r.warnings.length ? '⚠️ ' + esc(r.warnings.join(' / ')) : ''), r.warnings.length ? '' : 'ok');
+    loadList();
+    refreshStatus();
+  } catch (e) { toast(e.message, 'err'); }
+});
+
+/* ===== 初回登録 ===== */
+$('regBtn').addEventListener('click', async () => {
+  try {
+    const s = await api('register', { empId: toHalf($('empId').value) });
+    state.status = s;
+    showView('shoot');
+    renderStatus();
+    toast('<b>' + esc(s.name) + ' さんで登録しました</b>', 'ok');
+  } catch (e) { toast(e.message, 'err'); }
+});
+
+/* ===== 画面切り替え・共通 ===== */
+document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => {
+  showView(b.dataset.tab);
+  if (b.dataset.tab === 'list') loadList();
+}));
+function showView(name) {
+  ['shoot', 'list', 'reg'].forEach((v) => { $('view-' + v).hidden = v !== name; });
+  document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  $('dock').hidden = name === 'reg';
+}
+
+let toastTimer = null;
+function toast(html, kind, action, ms) {
+  const t = $('toast');
+  $('toastMsg').innerHTML = html;
+  t.className = 'toast show ' + (kind || '');
+  const btn = $('toastBtn');
+  if (action) {
+    btn.hidden = false; btn.textContent = action.label;
+    btn.onclick = () => { t.classList.remove('show'); action.onClick(); };
+  } else { btn.hidden = true; btn.onclick = null; }
+  clearTimeout(toastTimer);
+  if (kind) toastTimer = setTimeout(() => t.classList.remove('show'), ms || (kind === 'err' ? 8000 : 4000));
+}
+function showFatal(e) { toast(e.message || String(e), 'err'); }
+function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
+function toHalf(s) { return String(s).replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)); }
+function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+</script>
+</body>
+</html>
