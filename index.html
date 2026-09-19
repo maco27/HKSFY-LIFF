@@ -344,17 +344,19 @@ function fire(action, data = {}) {
   return ready.then((idToken) => fetch(GAS_URL, { method: 'POST', keepalive: true, body: JSON.stringify({ action, idToken, ...data }) })
     .then((r) => r.json()).catch(() => null));
 }
-const directEnabled = () => DIRECT_UPLOAD && localStorage.getItem('noDirect') !== '1';
+// 直接アップロードが失敗した端末は24時間だけGAS経由にする（一時的な通信エラーで永久に遅くならないように）
+const directEnabled = () => DIRECT_UPLOAD && Number(localStorage.getItem('noDirectUntil') || 0) < Date.now();
 
 /* ===== 起動 ===== */
-refreshStatus().then(flushOutbox);
+refreshStatus(true).then(flushOutbox);
 
-async function refreshStatus() {
+/** withSessions=true のときだけ直接アップロード先を作る（開いた直後と更新ボタン。毎回作ると遅くなるため） */
+async function refreshStatus(withSessions) {
   try {
-    const s = await api('status', { direct: directEnabled(), origin: location.origin });
+    const s = await api('status', { direct: !!withSessions && directEnabled(), origin: location.origin });
     dbg('status完了（サーバー ' + s.serverMs + 'ms）');
     state.status = s;
-    state.sessions = s.uploads || {};
+    if (s.uploads) state.sessions = s.uploads;
     if (!s.registered) { $('reg').hidden = false; return; }
     $('reg').hidden = true;
     if (!state.userPicked) setCol(defaultCol(), false);
@@ -436,7 +438,9 @@ $('cam').addEventListener('change', async (ev) => {
   if (hash && sentHashes().includes(hash)) { done(); return snack('<b>送信済みの写真です</b>同じ写真は保存しません', 'err'); }
   const t1 = performance.now();
 
-  const sess = state.sessions[col] && state.sessions[col].expiresAt > Date.now() + 30000 ? state.sessions[col] : null;
+  const sess0 = state.sessions[col];
+  // 期限切れ、または作成後に日付の区切り（午前4時）をまたいだ送り先は使わない（別の日として保存されるのを防ぐ）
+  const sess = sess0 && sess0.expiresAt > Date.now() + 30000 && dayKeyOf(sess0.createdAt || sess0.expiresAt - 1200000) === dayKeyOf(Date.now()) ? sess0 : null;
   const cid = sess ? sess.cid : uuid();
   let localId = null;
   try { localId = await outbox.add({ buf: await blob.arrayBuffer(), takenAt, cid, col, hash }); } catch (_) {}
@@ -449,7 +453,7 @@ $('cam').addEventListener('change', async (ev) => {
       const j = await res.json();
       r = { fileId: j.id, name: j.name || sess.name, col };
       route = '直接';
-    } catch (e) { dbg('直接アップロード失敗→GAS経由：' + e.message); localStorage.setItem('noDirect', '1'); }
+    } catch (e) { dbg('直接アップロード失敗→GAS経由：' + e.message); localStorage.setItem('noDirectUntil', String(Date.now() + 86400000)); }
     delete state.sessions[col];
   }
   if (!r) {
@@ -680,7 +684,7 @@ $('reload').addEventListener('click', async () => {
   const b = $('reload');
   if (b.classList.contains('spin')) return;
   b.classList.add('spin');
-  await Promise.all([refreshStatus(), state.listLoaded || pageIdx === 1 ? loadList() : null, flushOutbox()]);
+  await Promise.all([refreshStatus(true), state.listLoaded || pageIdx === 1 ? loadList() : null, flushOutbox()]);
   b.classList.remove('spin');
 });
 
@@ -752,6 +756,7 @@ function applyLocal(dateKey, col, patch) {
 function syncLater() { setTimeout(() => { refreshStatus(); if (state.listLoaded) loadList(); }, 400); }
 
 /* ===== 共通 ===== */
+function dayKeyOf(ms) { const d = new Date(ms - 4 * 3600000); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); } // 午前4時区切り
 function dateLabelFromKey(k) { const [y, m, d] = k.split('-').map(Number); return m + '/' + d + '(' + '日月火水木金土'[new Date(y, m - 1, d).getDay()] + ')'; }
 function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
 function toHalf(s) { return String(s).replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)); }
