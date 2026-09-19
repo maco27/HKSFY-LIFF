@@ -392,7 +392,12 @@ function fire(action, data = {}) {
 const directEnabled = () => DIRECT_UPLOAD && Number(localStorage.getItem('noDirectUntil') || 0) < Date.now();
 
 /* ===== 起動 ===== */
-refreshStatus(true).then(flushOutbox);
+// 起動時に「今日の状況」と「記録一覧」を同時に読み込む（記録画面を開いたときに待たせない）
+refreshStatus(true).then(() => {
+  const s = state.status;
+  if (s && s.registered && !s.blocked && !state.listLoaded) loadList();
+  flushOutbox();
+});
 
 /** withSessions=true のときだけ直接アップロード先を作る（開いた直後と更新ボタン。毎回作ると遅くなるため） */
 async function refreshStatus(withSessions) {
@@ -537,7 +542,7 @@ $('cam').addEventListener('change', async (ev) => {
   const otherSaved0 = state.status && state.status.slots && (state.status.slots.find((x) => x.col !== r.col) || {}).saved;
   snack('<b>保存完了</b>' + esc(r.name) + '　閉じても大丈夫です', '',
     otherSaved0 ? [] : [{ icon: 'swap', label: LABEL[r.col === 8 ? 9 : 8] + 'に変更', onClick: () => swapFile(r.fileId) }], 6000);
-  if (state.status) {
+  if (state.status && state.status.slots) {
     const sl = state.status.slots.find((x) => x.col === r.col);
     if (sl) Object.assign(sl, { saved: true, km: null, warn: false, manual: false, confirmed: false, fileId: r.fileId });
     render();
@@ -604,7 +609,7 @@ const outbox = {
 async function flushOutbox() {
   let items = [];
   try { items = await outbox.all(); } catch (_) { return; }
-  let sent = 0;
+  let sent = 0, dropped = 0;
   for (const it of items) {
     try {
       const image = it.image || await toBase64(new Blob([it.buf], { type: 'image/jpeg' }));
@@ -613,9 +618,14 @@ async function flushOutbox() {
       if (it.hash) rememberHash(it.hash);
       if (!r.duplicate) fire('process', { fileId: r.fileId });
       sent++;
-    } catch (_) { break; }
+    } catch (e) {
+      if (/^接続できません/.test(e.message)) break;           // 圏外など → 次回まとめて再送
+      if (/経ちすぎ/.test(e.message)) { await outbox.del(it.id).catch(() => {}); dropped++; } // 古すぎて送れない → 破棄して手入力を案内
+      // それ以外（期間フォルダが無い等）は残して次の写真へ（1枚のせいで全部止まらないように）
+    }
   }
-  if (sent) { snack('<b>未送信の写真を ' + sent + ' 件送りました</b>'); refreshStatus(); }
+  if (sent) { snack('<b>未送信の写真を ' + sent + ' 件送りました</b>'); refreshStatus(); if (state.listLoaded) loadList(); }
+  if (dropped) snack('<b>古い未送信の写真が ' + dropped + ' 件ありました</b>日数が経っているため送れません。記録画面から手入力してください', 'err', [], 15000);
 }
 
 /* ===== 記録（期間の最終日＝20日から表示） ===== */
@@ -642,14 +652,14 @@ function renderList() {
     if (!state.scrolledToday) {  // 初回は今日の行が見える位置まで送る
       state.scrolledToday = true;
       const t = document.querySelector('#rows tr.today');
-      if (t) t.scrollIntoView({ block: 'center' });
+      if (t) { const pg = $('page-list'); pg.scrollTop = Math.max(0, t.offsetTop - pg.clientHeight / 2); }
     }
   }
 }
 function markAnomalies(rows) {
   let prev = null;
   rows.forEach((r) => { // 古い日付から順に、前回より小さい値を探す
-    ['dep', 'ret'].forEach((k) => { const c = r[k]; if (c.km !== null) { c.bad = prev !== null && c.km < prev; prev = c.km; } });
+    ['dep', 'ret'].forEach((k) => { const c = r[k]; c.bad = false; if (c.km !== null && c.km !== undefined) { c.bad = prev !== null && c.km < prev; prev = c.km; } });
     r.distBad = r.dist !== null && (r.dist < 0 || r.dist > MAX_DAY_KM);
     if (r.dist !== null && r.dist < 0) { r.dep.bad = true; r.ret.bad = true; }
   });
@@ -699,7 +709,9 @@ function openDay(dateKey, focusCol) {
   }).join('');
   $('remark').value = d.remark;
   $('sheetBg').classList.add('show');
-  if (focusCol) setTimeout(() => { const el = $('km' + focusCol); if (el) el.scrollIntoView({ block: 'nearest' }); }, 50);
+  const sh = document.querySelector('.sheet');
+  sh.scrollTop = 0;
+  if (focusCol === 9) setTimeout(() => { const el = $('km9'); if (el) sh.scrollTop = Math.max(0, el.closest('.day-slot').offsetTop - 12); }, 50);
   // 写真は2枚同時に読み込む
   [[8, d.dep], [9, d.ret]].forEach(([col, c]) => {
     if (!c.fileId) return;
@@ -708,7 +720,21 @@ function openDay(dateKey, focusCol) {
     }).catch((e) => { if (editing === d) $('ph' + col).textContent = e.message; });
   });
 }
-function closeSheet() { $('sheetBg').classList.remove('show'); editing = null; }
+function closeSheet() {
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); // キーボードを閉じる
+  $('sheetBg').classList.remove('show');
+  editing = null;
+  fixLayout();
+}
+/** 画面のずれを戻す（キーボードやレイアウト変化でページ全体・左右ページがずれた場合） */
+function fixLayout() {
+  if (typeof progScroll !== 'undefined' && progScroll) return; // ページ切り替え中は触らない
+  requestAnimationFrame(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
+    pager.scrollTo({ left: pageIdx * pager.clientWidth });
+  });
+}
 $('sheetCancel').addEventListener('click', closeSheet);
 $('sheetBg').addEventListener('click', (e) => { if (e.target === $('sheetBg')) closeSheet(); });
 
@@ -720,12 +746,12 @@ $('daySlots').addEventListener('click', async (e) => {
   const del = e.target.closest('.del');
   if (del) {
     const col = Number(del.dataset.col), c = col === 8 ? d.dep : d.ret;
-    const ok = await ask(LABEL[col] + 'の写真を削除', 'この写真と、写真から読み取った数値を削除します。', [{ id: 'del', label: '削除する', cls: 'pri' }, { id: '', label: 'キャンセル', cls: 'sec' }]);
+    const ok = await ask(LABEL[col] + 'の写真を削除', '写真だけを削除します。数値はそのまま残ります。', [{ id: 'del', label: '削除する', cls: 'pri' }, { id: '', label: 'キャンセル', cls: 'sec' }]);
     if (ok !== 'del') return;
     try {
       await withLoading('削除中…', () => api('deletePhoto', { fileId: c.fileId }));
       closeSheet(); buzz();
-      applyLocal(d.dateKey, col, { km: null, fileId: '', saved: false, warn: false, manual: false, confirmed: false });
+      applyLocal(d.dateKey, col, { fileId: '', saved: false });
       snack('<b>写真を削除しました</b>'); syncLater();
     } catch (err) { snack(esc(err.message), 'err'); }
   }
@@ -785,7 +811,8 @@ $('regBtn').addEventListener('click', async () => {
   try {
     const s = await withLoading('登録中…', () => api('register', { empId: toHalf($('empId').value), direct: directEnabled(), origin: location.origin }));
     state.status = s; state.sessions = s.uploads || {};
-    $('reg').hidden = true; setCol(defaultCol(), false); render();
+    $('reg').hidden = true; setBlocked(s.blocked);
+    if (!s.blocked) { setCol(defaultCol(), false); render(); loadList(); }
     snack('<b>' + esc(s.name) + ' さんで登録しました</b>');
   } catch (e) { snack(esc(e.message), 'err'); }
 });
@@ -842,7 +869,7 @@ function snack(html, kind, actions, ms) {
   clearTimeout(snackTimer);
   if (kind !== '' || actions) snackTimer = setTimeout(hideSnack, ms || (kind === 'err' ? 12000 : 4000));
 }
-function hideSnack() { const t = $('snack'); t.classList.remove('show', 'drag'); t.style.transform = ''; t.style.opacity = ''; }
+function hideSnack() { const t = $('snack'); t.classList.remove('show', 'drag'); t.style.transform = ''; t.style.opacity = ''; fixLayout(); }
 $('snackX').addEventListener('click', hideSnack);
 (() => {
   const t = $('snack');
@@ -883,7 +910,7 @@ function applyLocal(dateKey, col, patch) {
     }
   }
   const s = state.status;
-  if (s && s.dateKey === dateKey) {
+  if (s && s.slots && s.dateKey === dateKey) {
     if (col === 'swap') { const [a, b] = s.slots; s.slots = [{ ...b, col: 8, label: '出発' }, { ...a, col: 9, label: '帰宅' }]; }
     else if (col === 'remark') s.remark = patch;
     else Object.assign(s.slots.find((x) => x.col === col), patch);
